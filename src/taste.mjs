@@ -31,6 +31,12 @@ const exec = promisify(execFile);
 
 /** Where to find it: an explicit override, then the PATH, then a local install. */
 function candidates(override) {
+  /*
+    An argv array is taken exactly as given. A string is split on spaces, which
+    cannot name a program whose path has one in it — and on Windows that
+    includes Node itself, under C:\Program Files.
+  */
+  if (Array.isArray(override)) return [override];
   if (override) return [override.split(' ')];
   return [
     ['impeccable'],

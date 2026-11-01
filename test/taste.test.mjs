@@ -17,7 +17,12 @@ import { judgeTaste, proposeTaste, summarizeTaste } from '../src/taste.mjs';
 import { openStore } from '../src/tasks.mjs';
 import { tempDir } from './helpers.mjs';
 
-/** A stand-in for the real CLI: prints `payload`, exits with `code`. */
+/**
+ * A stand-in for the real CLI: prints `payload`, exits with `code`.
+ *
+ * Returned as argv, not a command line: on Windows `process.execPath` is under
+ * C:\Program Files, and a string split on spaces breaks it in two.
+ */
 async function stub(dir, payload, code = 0) {
   const file = path.join(dir, 'fake-impeccable.mjs');
   await writeFile(
@@ -25,7 +30,7 @@ async function stub(dir, payload, code = 0) {
     `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(JSON.stringify(payload))});\nprocess.exit(${code});\n`,
   );
   await chmod(file, 0o755);
-  return `${process.execPath} ${file}`;
+  return [process.execPath, file];
 }
 
 const FINDINGS = [
@@ -99,7 +104,7 @@ describe('borrowing taste', () => {
     try {
       const file = path.join(dir, 'garbage.mjs');
       await writeFile(file, 'process.stdout.write("not json at all");\n');
-      const result = await judgeTaste('http://x/', { command: `${process.execPath} ${file}` });
+      const result = await judgeTaste('http://x/', { command: [process.execPath, file] });
       assert.equal(result.available, true);
       assert.match(result.error, /not JSON/);
       assert.deepEqual(result.findings, []);
