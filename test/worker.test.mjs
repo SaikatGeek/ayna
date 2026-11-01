@@ -29,9 +29,9 @@ async function fakeBrain(dir, { fails = false } = {}) {
 
 describe('the worker', () => {
   test('works what is waiting and leaves proposals alone', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       await store.create({ comment: 'widen the nav', status: 'open' });
       await store.create({ comment: 'a suggestion ayna made', status: 'proposed' });
 
@@ -57,9 +57,9 @@ describe('the worker', () => {
       found it pending again and did it a second time, and a third. It ran until
       it was killed.
     */
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       await store.create({ comment: 'widen the nav', status: 'open' });
       const brain = await fakeBrain(dir);
 
@@ -74,9 +74,9 @@ describe('the worker', () => {
   });
 
   test('a task somebody else holds is left to them', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'widen the nav', status: 'open' });
       await store.claim(t.id, 'a-claude-session');
 
@@ -89,9 +89,9 @@ describe('the worker', () => {
   });
 
   test('a fault that no longer reproduces costs nothing', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'covered: the button is behind the toast', status: 'open' });
 
       let brainRan = false;
@@ -116,9 +116,9 @@ describe('the worker', () => {
   });
 
   test('a fix that did not work says so rather than reporting done', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'covered: the button is behind the toast', status: 'open' });
 
       let call = 0;
@@ -137,9 +137,9 @@ describe('the worker', () => {
   });
 
   test('a brain that fails returns the task to the pile with the reason', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'widen the nav', status: 'open' });
 
       const result = await work({ projectDir: dir, brain: await fakeBrain(dir, { fails: true }) });

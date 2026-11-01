@@ -2103,7 +2103,7 @@ describe('the task list', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER set' }, () =
   });
 
   test('shows work from every page, this one first, and approves from the list', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const { openStore } = await import('../src/tasks.mjs');
       const { mkdir } = await import('node:fs/promises');
@@ -2119,7 +2119,7 @@ describe('the task list', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER set' }, () =
       );
 
       const server = await serveStatic(site, 4810);
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       // Work raised on a page we are not standing on.
       await store.create({
         comment: 'fix the other page heading',
@@ -2191,13 +2191,13 @@ describe('Claude proposing its own changes', { skip: !hasBrowser && 'AYNA_SKIP_B
   });
 
   test('a proposal waits for the user, who can approve it or say what to do instead', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const { openStore } = await import('../src/tasks.mjs');
       const site = path.join(dir, 'site');
       await fixtureSite(site);
       const server = await serveStatic(site, 4820);
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const events = [];
 
       // Two faults Claude found itself. Nothing has been edited.

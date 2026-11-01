@@ -17,7 +17,7 @@ import { openBrowser, gotoSettled } from '../src/browser.mjs';
 import { runAnnotate } from '../src/annotate.mjs';
 import { openStore } from '../src/tasks.mjs';
 import { pending as pendingWork, since as pendingEvents } from '../src/events.mjs';
-import { hasBrowser } from './helpers.mjs';
+import { hasBrowser, tempDir } from './helpers.mjs';
 
 /** A server that behaves like a real dev server: it never stops talking. */
 function pollingServer(bodyHtml, { doctype = true } = {}) {
@@ -50,6 +50,21 @@ function pollingServer(bodyHtml, { doctype = true } = {}) {
 const cards = (n) =>
   Array.from({ length: n }, (_, i) => `<div class="card" id="c${i}"><h3>Card ${i}</h3><button>Go ${i}</button></div>`).join('');
 const CARD_CSS = '<style>.card{border:1px solid #ccc;padding:10px;margin:6px}</style>';
+
+/**
+ * The log as another process sees it, the way `ayna say` or `ayna preview`
+ * would: its own handle, closed when it is done. Left open, the handle keeps
+ * Windows from deleting the project afterwards.
+ */
+async function fromOutside(dir, fn) {
+  const { openDb } = await import('../src/db.mjs');
+  const db = await openDb(dir);
+  try {
+    return await fn(db);
+  } finally {
+    db.close();
+  }
+}
 
 describe('a page that never goes idle', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER set' }, () => {
   let browser;
@@ -404,7 +419,7 @@ describe('work is visible while it is still being done', { skip: !hasBrowser && 
       different process would open.
     */
     const { srv, url } = await pollingServer('<h1 class="title">Hello</h1>');
-    const dir = await mkdtemp(path.join(tmpdir(), 'ayna-live-'));
+    const { dir, own, dispose } = await tempDir('ayna-live-');
     try {
       let seenDuring = [];
       let owedDuring = 0;
@@ -414,7 +429,7 @@ describe('work is visible while it is still being done', { skip: !hasBrowser && 
         url,
         outDir: path.join(dir, 'out'),
         projectDir: dir,
-        store: await openStore(dir),
+        store: own(await openStore(dir)),
         viewport: { width: 1000, height: 700 },
         onReady: async (page) => {
           await page.click('.title');
@@ -424,7 +439,7 @@ describe('work is visible while it is still being done', { skip: !hasBrowser && 
           await page.waitForTimeout(600);
 
           // Still open, still commenting — ask from outside.
-          const outside = await openStore(dir);
+          const outside = own(await openStore(dir));
           seenDuring = (await outside.list()).map((t) => t.comment);
           owedDuring = (await pendingWork(dir)).pending;
 
@@ -436,7 +451,7 @@ describe('work is visible while it is still being done', { skip: !hasBrowser && 
       assert.equal(owedDuring, 1);
     } finally {
       srv.close();
-      await rm(dir, { recursive: true, force: true });
+      await dispose();
     }
   });
 });
@@ -574,14 +589,14 @@ describe('the console in the window', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER 
   */
   async function withConsole(run) {
     const { srv, url } = await pollingServer('<h1 class="t">Hello</h1><div style="height:1200px"></div>');
-    const dir = await mkdtemp(path.join(tmpdir(), 'ayna-console-'));
+    const { dir, own, dispose } = await tempDir('ayna-console-');
     try {
       await runAnnotate({
         browser,
         url,
         outDir: path.join(dir, 'out'),
         projectDir: dir,
-        store: await openStore(dir),
+        store: own(await openStore(dir)),
         viewport: { width: 1200, height: 800 },
         onReady: async (page) => {
           await page.waitForTimeout(900);
@@ -591,7 +606,7 @@ describe('the console in the window', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER 
       });
     } finally {
       srv.close();
-      await rm(dir, { recursive: true, force: true });
+      await dispose();
     }
   }
 
@@ -607,8 +622,8 @@ describe('the console in the window', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER 
   test('carries both sides of the conversation', async () => {
     const lines = [];
     await withConsole(async (page, dir) => {
-      const { appendEvent, openDb } = await import('../src/db.mjs');
-      appendEvent(await openDb(dir), { event: 'message', from: 'claude', text: 'starting on the nav now' });
+      const { appendEvent } = await import('../src/db.mjs');
+      await fromOutside(dir, (db) => appendEvent(db, { event: 'message', from: 'claude', text: 'starting on the nav now' }));
       await page.waitForTimeout(1500);
 
       await page.fill('.ayna-ov-console input', 'make it wider too');
@@ -680,9 +695,9 @@ describe('what everyone else is doing', { skip: !hasBrowser && 'AYNA_SKIP_BROWSE
       claimed it and when that claim runs out.
     */
     const { srv, url } = await pollingServer('<h1 class="t">Heading</h1>');
-    const dir = await mkdtemp(path.join(tmpdir(), 'ayna-agents-'));
+    const { dir, own, dispose } = await tempDir('ayna-agents-');
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       let chips = [];
       let afterExpiry = [];
 
@@ -718,7 +733,7 @@ describe('what everyone else is doing', { skip: !hasBrowser && 'AYNA_SKIP_BROWSE
       assert.deepEqual(afterExpiry, ['cursor-2task-0001'], 'a released task still showed an owner');
     } finally {
       srv.close();
-      await rm(dir, { recursive: true, force: true });
+      await dispose();
     }
   });
 });
@@ -743,7 +758,7 @@ describe('resizing the window', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER set' }
     const { srv, url } = await pollingServer(
       '<div id="app" style="position:fixed;inset:0;background:#123"><h1 class="t">app</h1></div>',
     );
-    const dir = await mkdtemp(path.join(tmpdir(), 'ayna-resize-'));
+    const { dir, own, dispose } = await tempDir('ayna-resize-');
     try {
       const gaps = [];
       await runAnnotate({
@@ -751,7 +766,7 @@ describe('resizing the window', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER set' }
         url,
         outDir: path.join(dir, 'out'),
         projectDir: dir,
-        store: await openStore(dir),
+        store: own(await openStore(dir)),
         viewport: { width: 1000, height: 700 },
         onReady: async (page) => {
           const measure = async (label) => {
@@ -783,7 +798,7 @@ describe('resizing the window', { skip: !hasBrowser && 'AYNA_SKIP_BROWSER set' }
       }
     } finally {
       srv.close();
-      await rm(dir, { recursive: true, force: true });
+      await dispose();
     }
   });
 });
@@ -808,14 +823,14 @@ describe('trying something before writing it', { skip: !hasBrowser && 'AYNA_SKIP
     const { srv, url } = await pollingServer(
       '<h1 class="t" style="font-size:20px;font-weight:400">Subscribe for updates</h1>',
     );
-    const dir = await mkdtemp(path.join(tmpdir(), 'ayna-preview-'));
+    const { dir, own, dispose } = await tempDir('ayna-preview-');
     try {
       await runAnnotate({
         browser,
         url,
         outDir: path.join(dir, 'out'),
         projectDir: dir,
-        store: await openStore(dir),
+        store: own(await openStore(dir)),
         viewport: { width: 1000, height: 700 },
         onReady: async (page) => {
           await page.waitForTimeout(800);
@@ -825,23 +840,24 @@ describe('trying something before writing it', { skip: !hasBrowser && 'AYNA_SKIP
       });
     } finally {
       srv.close();
-      await rm(dir, { recursive: true, force: true });
+      await dispose();
     }
   }
 
   const offer = async (dir, extra = []) => {
-    const { appendEvent, openDb } = await import('../src/db.mjs');
-    const db = await openDb(dir);
-    return appendEvent(db, {
-      event: 'preview',
-      previewId: 'pv-test',
-      selector: '.t',
-      variants: [
-        { css: 'font-size: 34px', label: 'bolder' },
-        { css: 'font-size: 44px', label: 'much bigger' },
-        ...extra,
-      ],
-    });
+    const { appendEvent } = await import('../src/db.mjs');
+    return fromOutside(dir, (db) =>
+      appendEvent(db, {
+        event: 'preview',
+        previewId: 'pv-test',
+        selector: '.t',
+        variants: [
+          { css: 'font-size: 34px', label: 'bolder' },
+          { css: 'font-size: 44px', label: 'much bigger' },
+          ...extra,
+        ],
+      }),
+    );
   };
 
   const size = (page) => page.evaluate(() => getComputedStyle(document.querySelector('.t')).fontSize);
@@ -881,8 +897,8 @@ describe('trying something before writing it', { skip: !hasBrowser && 'AYNA_SKIP
       await page.waitForTimeout(700);
 
       after = await size(page);
-      const { eventsSince, openDb } = await import('../src/db.mjs');
-      answer = eventsSince(await openDb(dir), from).find((e) => e.event === 'preview-accepted');
+      const { eventsSince } = await import('../src/db.mjs');
+      answer = await fromOutside(dir, (db) => eventsSince(db, from).find((e) => e.event === 'preview-accepted'));
     });
 
     assert.equal(after, '20px', 'the preview must come down when it is answered');
@@ -899,8 +915,8 @@ describe('trying something before writing it', { skip: !hasBrowser && 'AYNA_SKIP
       await page.waitForSelector('.ayna-ov-preview-bar', { timeout: 10000 });
       await page.keyboard.press('Escape');
       await page.waitForTimeout(700);
-      const { eventsSince, openDb } = await import('../src/db.mjs');
-      answer = eventsSince(await openDb(dir), from).find((e) => e.event === 'preview-rejected');
+      const { eventsSince } = await import('../src/db.mjs');
+      answer = await fromOutside(dir, (db) => eventsSince(db, from).find((e) => e.event === 'preview-rejected'));
     });
     assert.ok(answer, 'a refusal is an answer and has to travel too');
     assert.equal(answer.css, null, 'nothing to write when nothing was chosen');
@@ -936,9 +952,9 @@ describe('asking for a design direction', { skip: !hasBrowser && 'AYNA_SKIP_BROW
     const { srv, url } = await pollingServer(
       CARD_CSS + '<div class="card" id="c0"><h3>Ask in plain language</h3></div>',
     );
-    const dir = await mkdtemp(path.join(tmpdir(), 'ayna-act-'));
+    const { dir, own, dispose } = await tempDir('ayna-act-');
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       let offered = [];
       await runAnnotate({
         browser,
@@ -962,7 +978,7 @@ describe('asking for a design direction', { skip: !hasBrowser && 'AYNA_SKIP_BROW
       return { offered, events, tasks: await store.list() };
     } finally {
       srv.close();
-      await rm(dir, { recursive: true, force: true });
+      await dispose();
     }
   }
 

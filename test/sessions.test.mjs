@@ -31,9 +31,9 @@ describe('who is here', () => {
       alive and no longer doing this — hung, or reusing a number that once
       belonged to a review — and its tabs should not stay locked to it.
     */
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const sessions = await openSessions(dir);
+      const sessions = own(await openSessions(dir));
       const id = sessions.register({ tool: 'claude', pid: process.pid });
       const tab = sessions.openTab({ url: 'http://x/', sessionId: id });
 
@@ -51,9 +51,9 @@ describe('who is here', () => {
   test('a freed tab can be adopted, and a held one cannot be taken', async () => {
     // The work in a dead session's tab is still owed. The next session should
     // find an open door, not a locked one.
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const sessions = await openSessions(dir);
+      const sessions = own(await openSessions(dir));
       const first = sessions.register({ pid: 999999 });
       const tab = sessions.openTab({ url: 'http://x/', sessionId: first });
       const second = sessions.register({ tool: 'cursor', pid: process.pid });
@@ -75,9 +75,9 @@ describe('who is here', () => {
   });
 
   test('a lease from a worker that died expires', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'widen the nav' });
       await store.claim(t.id, 'crashed-worker', { leaseMs: -1 });
 
@@ -90,9 +90,9 @@ describe('who is here', () => {
   });
 
   test('deaths are written down, so a later reader can see what happened', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const sessions = await openSessions(dir);
+      const sessions = own(await openSessions(dir));
       sessions.register({ tool: 'claude', pid: 999999 });
       sessions.sweep();
 
@@ -146,9 +146,9 @@ describe('the bookkeeper', () => {
   test('the loop sweeps and stops when told', async () => {
     // Driven by importing it, because a `node --test` run cannot drive a command
     // that never returns.
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const sessions = await openSessions(dir);
+      const sessions = own(await openSessions(dir));
       sessions.register({ tool: 'claude', pid: 999999 });
 
       const controller = new AbortController();

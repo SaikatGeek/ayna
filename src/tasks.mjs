@@ -286,9 +286,21 @@ export async function openStore(projectDir, { db: given } = {}) {
     };
   }
 
+  /*
+    Close the database, but only one this store opened.
+
+    A handle passed in belongs to whoever opened it, and they may still be using
+    it: the window and its sessions share one. A handle nobody closes waits for
+    the garbage collector, and until then Windows refuses to delete the file, so
+    a project could not be removed after anything had opened its store.
+  */
+  const close = () => {
+    if (!given && db.isOpen) db.close();
+  };
+
   await migrateFromFiles(db, dir);
 
-  return { dir, db, list, get: read, create, update, claim, release, remove, stats };
+  return { dir, db, list, get: read, create, update, claim, release, remove, stats, close };
 }
 
 /**

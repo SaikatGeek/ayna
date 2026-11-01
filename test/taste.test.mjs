@@ -123,9 +123,9 @@ describe('borrowing taste', () => {
 
 describe('taste becomes a proposal, never an edit', () => {
   test('each rule is raised once, as `proposed`', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const result = await judgeTaste('http://x/', { command: await stub(dir, FINDINGS) });
 
       const first = await proposeTaste(store, result, { url: 'http://x/' });
@@ -151,9 +151,9 @@ describe('taste becomes a proposal, never an edit', () => {
   });
 
   test('nothing is raised when the tool is not there', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const result = await judgeTaste('http://x/', { command: '/nope/not-a-real-binary' });
       assert.equal((await proposeTaste(store, result, {})).proposed, 0);
       assert.deepEqual(await store.list(), []);

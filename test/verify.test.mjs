@@ -26,9 +26,9 @@ describe('reading what a task claims', () => {
 
 describe('acting on the verdicts', () => {
   test('only a measurement closes anything', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const gone = await store.create({ comment: 'covered: the button', status: 'open' });
       const changed = await store.create({ comment: 'make the logo bigger', status: 'open' });
       const same = await store.create({ comment: 'widen the nav', status: 'open' });
@@ -53,9 +53,9 @@ describe('acting on the verdicts', () => {
   });
 
   test('closing carries its evidence, because nobody will read it otherwise', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'offscreen: the card runs past the edge', status: 'open' });
       await applyVerdicts(store, [{ id: t.id, verdict: 'gone', kind: 'offscreen', why: 'no offscreen fault here any more' }]);
 
@@ -70,9 +70,9 @@ describe('acting on the verdicts', () => {
   test('a page that could not be measured changes nothing', async () => {
     // Unknown is not clean. Treating it as either would be the one failure worse
     // than not checking at all.
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'covered: the button', status: 'open' });
       const done = await applyVerdicts(store, [{ id: t.id, verdict: 'unknown', why: 'the page could not be opened' }]);
 
@@ -84,9 +84,9 @@ describe('acting on the verdicts', () => {
   });
 
   test('an element that has gone is asked about, not assumed', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'make the logo bigger', selector: 'img.logo', status: 'open' });
       await applyVerdicts(store, [
         { id: t.id, verdict: 'element-gone', why: 'the element it was about is no longer on the page' },

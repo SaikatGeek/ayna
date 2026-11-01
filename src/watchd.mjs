@@ -91,27 +91,32 @@ export async function watchLoop({
 
   let reportedEditsAt = 0;
 
-  while (!stopped) {
-    const swept = sessions.sweep({ now: now() });
-    if (swept.sessions || swept.tabs || swept.leases) onEvent({ event: 'swept', ...swept });
+  try {
+    while (!stopped) {
+      const swept = sessions.sweep({ now: now() });
+      if (swept.sessions || swept.tabs || swept.leases) onEvent({ event: 'swept', ...swept });
 
-    // Say it once per burst, not once per keystroke.
-    if (editedAt && now() - editedAt > 3000 && editedAt > reportedEditsAt) {
-      reportedEditsAt = editedAt;
-      appendEvent(db, { event: 'edits', at: editedAt });
-      onEvent({ event: 'edits', at: editedAt });
+      // Say it once per burst, not once per keystroke.
+      if (editedAt && now() - editedAt > 3000 && editedAt > reportedEditsAt) {
+        reportedEditsAt = editedAt;
+        appendEvent(db, { event: 'edits', at: editedAt });
+        onEvent({ event: 'edits', at: editedAt });
+      }
+
+      await pruneSessionFiles(projectDir).then(
+        (n) => n && onEvent({ event: 'pruned', pointers: n }),
+        () => {},
+      );
+
+      if (stopped) break;
+      await new Promise((r) => setTimeout(r, intervalMs));
     }
-
-    await pruneSessionFiles(projectDir).then(
-      (n) => n && onEvent({ event: 'pruned', pointers: n }),
-      () => {},
-    );
-
-    if (stopped) break;
-    await new Promise((r) => setTimeout(r, intervalMs));
+  } finally {
+    // Released even when a sweep throws, so the error is what gets reported and
+    // not a project that cannot be deleted because the database is still open.
+    watcher?.close();
+    sessions.close();
   }
-
-  watcher?.close();
   return { stop };
 }
 

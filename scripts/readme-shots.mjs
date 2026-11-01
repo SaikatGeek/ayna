@@ -110,6 +110,8 @@ async function main() {
   await Promise.race([done, new Promise((r) => setTimeout(r, 90_000))]);
   await browser.close().catch(() => {});
   await server.close?.();
+  // Windows will not delete the database while this process still has it open.
+  store.close();
   await rm(dir, { recursive: true, force: true });
 
   await writeFile(path.join(OUT, 'index.json'), JSON.stringify({ shots }, null, 2));

@@ -238,5 +238,10 @@ export async function openSessions(projectDir, { db: given } = {}) {
       .all()
       .map((t) => ({ id: t.id, url: t.url, outDir: t.out_dir, owner: t.owner_session, phase: t.phase }));
 
-  return { db, register, resume, heartbeat, end, openTab, tabFor, closeTab, claimTab, sweep, live, tabs };
+  /** Close the database if this opened it; one passed in is the caller's to close. */
+  const close = () => {
+    if (!given && db.isOpen) db.close();
+  };
+
+  return { db, register, resume, heartbeat, end, openTab, tabFor, closeTab, claimTab, sweep, live, tabs, close };
 }

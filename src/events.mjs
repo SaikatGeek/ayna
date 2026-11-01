@@ -16,6 +16,24 @@ import { openDb, eventsSince, latestSeq, readCursor, writeCursor } from './db.mj
  * entirely.
  */
 
+/*
+  The caller's database, or one opened for this call and closed before it returns.
+
+  Every function here used to open its own handle when it was not given one, and
+  none of them closed it. Nothing notices that on macOS or Linux. Windows refuses
+  to delete a file that is still open, so after one question about the log the
+  project could not be removed until the garbage collector happened to run. A
+  handle that was passed in belongs to the caller, who may still be using it.
+*/
+async function withDb(projectDir, given, fn) {
+  const db = given ?? (await openDb(projectDir));
+  try {
+    return await fn(db);
+  } finally {
+    if (!given) db.close();
+  }
+}
+
 /**
  * What is owed right now, regardless of when it was raised.
  *
@@ -28,12 +46,16 @@ import { openDb, eventsSince, latestSeq, readCursor, writeCursor } from './db.mj
 export async function pending(projectDir, { db: given } = {}) {
   const { openStore, isPending } = await import('./tasks.mjs');
   const store = await openStore(projectDir, { db: given });
-  const owed = (await store.list()).filter(isPending);
-  return {
-    event: 'ready',
-    pending: owed.length,
-    tasks: owed.map((t) => ({ id: t.id, status: t.status, comment: t.comment, url: t.url })),
-  };
+  try {
+    const owed = (await store.list()).filter(isPending);
+    return {
+      event: 'ready',
+      pending: owed.length,
+      tasks: owed.map((t) => ({ id: t.id, status: t.status, comment: t.comment, url: t.url })),
+    };
+  } finally {
+    store.close();
+  }
 }
 
 /**
@@ -47,20 +69,21 @@ export async function pending(projectDir, { db: given } = {}) {
  * up. Call again from `cursor` while `more` is true.
  */
 export async function since(projectDir, { since: from = 0, limit = 500, db: given } = {}) {
-  const db = given ?? (await openDb(projectDir));
-  const events = eventsSince(db, from, limit);
-  const owed = await pending(projectDir, { db });
-  const cursor = events.length ? events.at(-1).seq : Number(from) || 0;
-  const latest = latestSeq(db);
-  return {
-    events,
-    cursor,
-    latest,
-    more: cursor < latest,
-    remaining: Math.max(0, latest - cursor),
-    pending: owed.pending,
-    tasks: owed.tasks,
-  };
+  return withDb(projectDir, given, async (db) => {
+    const events = eventsSince(db, from, limit);
+    const owed = await pending(projectDir, { db });
+    const cursor = events.length ? events.at(-1).seq : Number(from) || 0;
+    const latest = latestSeq(db);
+    return {
+      events,
+      cursor,
+      latest,
+      more: cursor < latest,
+      remaining: Math.max(0, latest - cursor),
+      pending: owed.pending,
+      tasks: owed.tasks,
+    };
+  });
 }
 
 /**
@@ -70,29 +93,30 @@ export async function since(projectDir, { since: from = 0, limit = 500, db: give
  * should not have to remember to implement correctly.
  */
 export async function sinceAll(projectDir, { since: from = 0, batch = 500, max = 50_000, db: given } = {}) {
-  const db = given ?? (await openDb(projectDir));
-  const events = [];
-  let cursor = Number(from) || 0;
+  return withDb(projectDir, given, async (db) => {
+    const events = [];
+    let cursor = Number(from) || 0;
 
-  for (;;) {
-    const page = eventsSince(db, cursor, batch);
-    if (!page.length) break;
-    events.push(...page);
-    cursor = page.at(-1).seq;
-    if (events.length >= max) break;
-  }
+    for (;;) {
+      const page = eventsSince(db, cursor, batch);
+      if (!page.length) break;
+      events.push(...page);
+      cursor = page.at(-1).seq;
+      if (events.length >= max) break;
+    }
 
-  const owed = await pending(projectDir, { db });
-  const latest = latestSeq(db);
-  return {
-    events,
-    cursor,
-    latest,
-    more: cursor < latest, // only when `max` stopped us
-    remaining: Math.max(0, latest - cursor),
-    pending: owed.pending,
-    tasks: owed.tasks,
-  };
+    const owed = await pending(projectDir, { db });
+    const latest = latestSeq(db);
+    return {
+      events,
+      cursor,
+      latest,
+      more: cursor < latest, // only when `max` stopped us
+      remaining: Math.max(0, latest - cursor),
+      pending: owed.pending,
+      tasks: owed.tasks,
+    };
+  });
 }
 
 /**
@@ -103,11 +127,12 @@ export async function sinceAll(projectDir, { since: from = 0, batch = 500, max =
  * the failure this whole file exists to prevent.
  */
 export async function drain(projectDir, consumer, { limit = 500, db: given } = {}) {
-  const db = given ?? (await openDb(projectDir));
-  const from = readCursor(db, consumer);
-  const events = eventsSince(db, from, limit);
-  if (events.length) writeCursor(db, consumer, events.at(-1).seq);
-  return { events, from, cursor: events.length ? events.at(-1).seq : from };
+  return withDb(projectDir, given, (db) => {
+    const from = readCursor(db, consumer);
+    const events = eventsSince(db, from, limit);
+    if (events.length) writeCursor(db, consumer, events.at(-1).seq);
+    return { events, from, cursor: events.length ? events.at(-1).seq : from };
+  });
 }
 
 /**
@@ -119,30 +144,31 @@ export async function drain(projectDir, consumer, { limit = 500, db: given } = {
  * indexed integer column costs nothing next to being wrong.
  */
 export async function follow(projectDir, { consumer, onEvent, signal, intervalMs = 400, db: given } = {}) {
-  const db = given ?? (await openDb(projectDir));
-  let cursor = consumer ? readCursor(db, consumer) : latestSeq(db);
-  let stopped = false;
+  return withDb(projectDir, given, async (db) => {
+    let cursor = consumer ? readCursor(db, consumer) : latestSeq(db);
+    let stopped = false;
 
-  const stop = () => {
-    stopped = true;
-  };
-  signal?.addEventListener('abort', stop, { once: true });
+    const stop = () => {
+      stopped = true;
+    };
+    signal?.addEventListener('abort', stop, { once: true });
 
-  // State the standing debt before streaming changes. A consumer that starts
-  // late must not have to wait for the next change to discover it was already
-  // behind — the first line says what is owed, as `watch` has always done.
-  onEvent(await pending(projectDir, { db }));
+    // State the standing debt before streaming changes. A consumer that starts
+    // late must not have to wait for the next change to discover it was already
+    // behind — the first line says what is owed, as `watch` has always done.
+    onEvent(await pending(projectDir, { db }));
 
-  while (!stopped) {
-    const batch = eventsSince(db, cursor);
-    for (const event of batch) {
+    while (!stopped) {
+      const batch = eventsSince(db, cursor);
+      for (const event of batch) {
+        if (stopped) break;
+        onEvent(event);
+        cursor = event.seq;
+        if (consumer) writeCursor(db, consumer, cursor);
+      }
       if (stopped) break;
-      onEvent(event);
-      cursor = event.seq;
-      if (consumer) writeCursor(db, consumer, cursor);
+      await new Promise((r) => setTimeout(r, intervalMs));
     }
-    if (stopped) break;
-    await new Promise((r) => setTimeout(r, intervalMs));
-  }
-  return { cursor, stop };
+    return { cursor, stop };
+  });
 }

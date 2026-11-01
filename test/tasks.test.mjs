@@ -9,9 +9,9 @@ import { tempDir } from './helpers.mjs';
 
 describe('task store', () => {
   test('a task survives being written and read back', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const made = await store.create({ comment: 'too cramped', url: 'http://x/a', kind: 'comment' });
 
       assert.match(made.id, /^task-\d{4}$/);
@@ -19,7 +19,7 @@ describe('task store', () => {
       assert.equal(made.v, SCHEMA, 'records carry a schema version');
 
       // A second store over the same directory sees it — nothing is held in memory.
-      const reopened = await openStore(dir);
+      const reopened = own(await openStore(dir));
       const found = await reopened.get(made.id);
       assert.equal(found.comment, 'too cramped');
     } finally {
@@ -28,9 +28,9 @@ describe('task store', () => {
   });
 
   test('ids do not collide', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const made = [];
       for (let i = 0; i < 5; i++) made.push(await store.create({ comment: `c${i}` }));
       assert.equal(new Set(made.map((t) => t.id)).size, 5);
@@ -40,7 +40,7 @@ describe('task store', () => {
   });
 
   test('assets are copied in, so cleaning a run directory cannot orphan them', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const scratch = path.join(dir, 'run');
       await mkdir(scratch, { recursive: true });
@@ -49,7 +49,7 @@ describe('task store', () => {
       await writeFile(crop, 'crop-bytes');
       await writeFile(ref, 'ref-bytes');
 
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'look here' }, { regionScreenshot: crop, attachments: [ref] });
 
       assert.ok(existsSync(t.regionScreenshot), 'crop copied into the task');
@@ -59,7 +59,7 @@ describe('task store', () => {
       // Delete the originals; the task is unaffected.
       const { rm } = await import('node:fs/promises');
       await rm(scratch, { recursive: true, force: true });
-      const still = await (await openStore(dir)).get(t.id);
+      const still = await own(await openStore(dir)).get(t.id);
       assert.ok(existsSync(still.regionScreenshot));
       assert.equal(await readFile(still.regionScreenshot, 'utf8'), 'crop-bytes');
     } finally {
@@ -68,9 +68,9 @@ describe('task store', () => {
   });
 
   test('status changes are recorded with their history', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.create({ comment: 'x' });
 
       await store.update(t.id, { status: 'in_progress' });
@@ -90,9 +90,9 @@ describe('task store', () => {
   });
 
   test('pending work is what has not been approved', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const a = await store.create({ comment: 'a', url: 'http://x/1' });
       const b = await store.create({ comment: 'b', url: 'http://x/2' });
       await store.create({ comment: 'c', url: 'http://x/1' });
@@ -113,9 +113,9 @@ describe('task store', () => {
   });
 
   test('a corrupt record does not take the store down', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       await store.create({ comment: 'good one' });
       await mkdir(path.join(store.dir, 'task-0099'), { recursive: true });
       await writeFile(path.join(store.dir, 'task-0099', 'task.json'), '{ broken');
@@ -137,7 +137,7 @@ describe('importing work captured before the store existed', () => {
   }
 
   test('old comments are adopted, with resolved mapped to approved', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       await legacySession(dir, '2026-07-30T12-00-00', [
         { n: 1, id: 1, comment: 'still open', status: 'open', url: 'http://x/a' },
@@ -145,7 +145,7 @@ describe('importing work captured before the store existed', () => {
         { n: 3, id: 3, comment: 'needs work', status: 'rejected', url: 'http://x/b' },
       ]);
 
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const result = await importLegacy(dir, store);
       assert.equal(result.imported, 3);
 
@@ -159,10 +159,10 @@ describe('importing work captured before the store existed', () => {
   });
 
   test('importing twice does not duplicate anything', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       await legacySession(dir, '2026-07-30T12-00-00', [{ n: 1, id: 1, comment: 'once', status: 'open' }]);
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       await importLegacy(dir, store);
       await importLegacy(dir, store);
       assert.equal((await store.list()).length, 1);
@@ -174,10 +174,10 @@ describe('importing work captured before the store existed', () => {
 
 describe('watching the store', () => {
   test('announces what is already owed, then each change, with no window involved', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const { watchTasks } = await import('../src/watch.mjs');
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       // Work that existed before anything was watching.
       const old = await store.create({ comment: 'from a session that ended', url: 'http://x/a' });
 
@@ -211,10 +211,10 @@ describe('watching the store', () => {
   });
 
   test('a status is announced once, not on every sweep', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const { watchTasks } = await import('../src/watch.mjs');
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const events = [];
       const controller = new AbortController();
       const { stop } = await watchTasks({

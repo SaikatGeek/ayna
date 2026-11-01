@@ -92,6 +92,9 @@ export async function watchTasks({ projectDir, onEvent, signal, intervalMs = 150
     clearInterval(timer);
     if (queued) clearTimeout(queued);
     watcher?.close();
+    // Opened here, so closed here. Every read is synchronous inside a sweep, and
+    // no sweep starts once `stopped` is set.
+    store.close();
   };
   signal?.addEventListener('abort', stop, { once: true });
 

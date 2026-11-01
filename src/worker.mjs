@@ -125,79 +125,84 @@ export async function work({
   */
   const tried = new Set();
 
-  while (done.length < limit && !signal?.aborted) {
-    /*
-      Only what is actually waiting for someone.
+  try {
+    while (done.length < limit && !signal?.aborted) {
+      /*
+        Only what is actually waiting for someone.
 
-      "Pending" was the first filter and it loops forever: `applied` is pending —
-      it means done but not yet approved — so the worker finished a task,
-      released it, found it pending again and did it a second time, and a third.
-      Waiting for work and waiting for a verdict are different states, and only
-      the first belongs to a worker.
-    */
-    const open = (await store.list()).filter(
-      (t) => (t.status === 'open' || t.status === 'rejected') && !t.claimedBy && !tried.has(t.id),
-    );
-    if (!open.length) break;
+        "Pending" was the first filter and it loops forever: `applied` is pending —
+        it means done but not yet approved — so the worker finished a task,
+        released it, found it pending again and did it a second time, and a third.
+        Waiting for work and waiting for a verdict are different states, and only
+        the first belongs to a worker.
+      */
+      const open = (await store.list()).filter(
+        (t) => (t.status === 'open' || t.status === 'rejected') && !t.claimedBy && !tried.has(t.id),
+      );
+      if (!open.length) break;
 
-    const task = open[0];
-    tried.add(task.id);
-    const claimed = await store.claim(task.id, owner);
-    if (!claimed) {
-      // Somebody else got there first. That is the mechanism working.
-      onEvent({ event: 'skipped', taskId: task.id, why: 'claimed by someone else' });
-      continue;
-    }
-
-    try {
-      if (verify) {
-        const [verdict] = await verify([claimed]);
-        if (verdict?.verdict === 'gone') {
-          await store.update(task.id, { status: 'obsolete', verdict }, verdict.why);
-          onEvent({ event: 'task', taskId: task.id, status: 'obsolete', why: verdict.why });
-          done.push({ id: task.id, outcome: 'already-fixed' });
-          continue;
-        }
-      }
-
-      await store.update(task.id, { status: 'in_progress' }, `${owner} picked it up`);
-      onEvent({ event: 'working', taskId: task.id, by: owner, comment: claimed.comment });
-
-      const result = await runBrain(brain, promptFor(claimed, { url: claimed.url }), { cwd: projectDir });
-
-      if (!result.ok) {
-        // Back to the pile, with the reason, rather than stuck as in_progress.
-        await store.update(task.id, { status: 'open' }, `${brain.name}: ${result.error ?? 'failed'}`);
-        onEvent({ event: 'failed', taskId: task.id, why: result.error ?? `exit ${result.code}` });
-        done.push({ id: task.id, outcome: 'failed', why: result.error });
+      const task = open[0];
+      tried.add(task.id);
+      const claimed = await store.claim(task.id, owner);
+      if (!claimed) {
+        // Somebody else got there first. That is the mechanism working.
+        onEvent({ event: 'skipped', taskId: task.id, why: 'claimed by someone else' });
         continue;
       }
 
-      let outcome = 'applied';
-      let note = result.out.split('\n').slice(-4).join(' ').slice(0, 300);
-
-      if (verify) {
-        const [after] = await verify([await store.get(task.id)]);
-        if (after?.verdict === 'reproduces') {
-          // The claim is that it is fixed; the page says otherwise. Say so.
-          outcome = 'still-broken';
-          note = `${brain.name} finished but the fault still reproduces`;
+      try {
+        if (verify) {
+          const [verdict] = await verify([claimed]);
+          if (verdict?.verdict === 'gone') {
+            await store.update(task.id, { status: 'obsolete', verdict }, verdict.why);
+            onEvent({ event: 'task', taskId: task.id, status: 'obsolete', why: verdict.why });
+            done.push({ id: task.id, outcome: 'already-fixed' });
+            continue;
+          }
         }
-      }
 
-      await store.update(task.id, { status: 'applied' }, note);
-      onEvent({ event: 'applied', taskId: task.id, by: owner, outcome, note });
-      done.push({ id: task.id, outcome, note });
-    } finally {
-      await store.release(task.id).catch(() => {});
-      if (store.db) {
-        try {
-          appendEvent(store.db, { event: 'released', taskId: task.id, by: owner });
-        } catch {
-          // The task is released either way; the log line is a nicety.
+        await store.update(task.id, { status: 'in_progress' }, `${owner} picked it up`);
+        onEvent({ event: 'working', taskId: task.id, by: owner, comment: claimed.comment });
+
+        const result = await runBrain(brain, promptFor(claimed, { url: claimed.url }), { cwd: projectDir });
+
+        if (!result.ok) {
+          // Back to the pile, with the reason, rather than stuck as in_progress.
+          await store.update(task.id, { status: 'open' }, `${brain.name}: ${result.error ?? 'failed'}`);
+          onEvent({ event: 'failed', taskId: task.id, why: result.error ?? `exit ${result.code}` });
+          done.push({ id: task.id, outcome: 'failed', why: result.error });
+          continue;
+        }
+
+        let outcome = 'applied';
+        let note = result.out.split('\n').slice(-4).join(' ').slice(0, 300);
+
+        if (verify) {
+          const [after] = await verify([await store.get(task.id)]);
+          if (after?.verdict === 'reproduces') {
+            // The claim is that it is fixed; the page says otherwise. Say so.
+            outcome = 'still-broken';
+            note = `${brain.name} finished but the fault still reproduces`;
+          }
+        }
+
+        await store.update(task.id, { status: 'applied' }, note);
+        onEvent({ event: 'applied', taskId: task.id, by: owner, outcome, note });
+        done.push({ id: task.id, outcome, note });
+      } finally {
+        await store.release(task.id).catch(() => {});
+        if (store.db) {
+          try {
+            appendEvent(store.db, { event: 'released', taskId: task.id, by: owner });
+          } catch {
+            // The task is released either way; the log line is a nicety.
+          }
         }
       }
     }
+  } finally {
+    // Opened for this run, so closed with it — including when a check throws.
+    store.close();
   }
 
   return { worked: done.length, tasks: done };

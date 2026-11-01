@@ -12,9 +12,10 @@ import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { openDb, appendEvent, eventsSince, transact, latestSeq } from '../src/db.mjs';
+import { openDb, appendEvent, eventsSince, transact, latestSeq, dbPath } from '../src/db.mjs';
 import { openStore, importLegacy, isPending, migrateFromFiles } from '../src/tasks.mjs';
-import { since, drain, pending } from '../src/events.mjs';
+import { openSessions } from '../src/sessions.mjs';
+import { since, sinceAll, drain, pending } from '../src/events.mjs';
 import { tempDir } from './helpers.mjs';
 
 describe('the event log', () => {
@@ -38,10 +39,10 @@ describe('the event log', () => {
   });
 
   test('a consumer that was not running still learns what it missed', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       // Round one happens with nobody listening at all.
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       await store.create({ comment: 'the nav is too wide', url: 'http://x/' });
       await store.create({ comment: 'logo is small', url: 'http://x/' });
 
@@ -59,9 +60,9 @@ describe('the event log', () => {
   });
 
   test('a named consumer resumes where it stopped, and repeats nothing', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       await store.create({ comment: 'first' });
 
       const one = await drain(dir, 'claude');
@@ -84,11 +85,57 @@ describe('the event log', () => {
   });
 });
 
-describe('two things wanting the same task', () => {
-  test('exactly one claim wins, and the loser is told', async () => {
+describe('letting go of the database', () => {
+  /*
+    A handle nobody closes costs nothing visible on macOS or Linux. Windows will
+    not delete a file that is still open, so there every test that removed its
+    project failed, and the EBUSY buried whatever the test had found. SQLite
+    deletes the -wal file when the last connection closes, which makes its
+    absence a check that holds on every platform, not only the one that
+    complains.
+  */
+  test('whatever opens a handle for itself closes it, and leaves a borrowed one open', async () => {
     const { dir, dispose } = await tempDir();
     try {
+      const leftOpen = () => existsSync(`${dbPath(dir)}-wal`);
+
       const store = await openStore(dir);
+      await store.create({ comment: 'still owed' });
+      store.close();
+      store.close(); // twice is harmless: `ayna watch` stops on a signal and on abort
+      assert.equal(leftOpen(), false, 'closing the store left the database open');
+
+      for (const [name, ask] of [
+        ['since', () => since(dir)],
+        ['sinceAll', () => sinceAll(dir)],
+        ['drain', () => drain(dir, 'claude')],
+        ['pending', () => pending(dir)],
+        ['openSessions', async () => (await openSessions(dir)).close()],
+      ]) {
+        await ask();
+        assert.equal(leftOpen(), false, `${name} left the database open`);
+      }
+
+      const db = await openDb(dir);
+      try {
+        (await openStore(dir, { db })).close();
+        (await openSessions(dir, { db })).close();
+        assert.equal((await since(dir, { db })).pending, 1);
+        assert.equal(db.isOpen, true, 'a handle that was passed in is the caller’s to close');
+      } finally {
+        db.close();
+      }
+    } finally {
+      await dispose();
+    }
+  });
+});
+
+describe('two things wanting the same task', () => {
+  test('exactly one claim wins, and the loser is told', async () => {
+    const { dir, own, dispose } = await tempDir();
+    try {
+      const store = own(await openStore(dir));
       const task = await store.create({ comment: 'widen the nav' });
 
       const worker = await store.claim(task.id, 'worker-1');
@@ -103,9 +150,9 @@ describe('two things wanting the same task', () => {
   });
 
   test('a claim from a process that died is taken over, not stuck forever', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const task = await store.create({ comment: 'resize the logo' });
 
       // A worker takes it and dies. Without expiry the task is lost to everyone.
@@ -122,7 +169,7 @@ describe('two things wanting the same task', () => {
 
 describe('upgrading a store that already has work in it', () => {
   test('task directories are adopted with their status, history and images', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const tasks = path.join(dir, '.ayna', 'tasks', 'task-0001');
       await mkdir(tasks, { recursive: true });
@@ -147,7 +194,7 @@ describe('upgrading a store that already has work in it', () => {
         }),
       );
 
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const t = await store.get('task-0001');
 
       assert.equal(t.comment, 'make this logo bigger');
@@ -163,7 +210,7 @@ describe('upgrading a store that already has work in it', () => {
   });
 
   test('adopting is idempotent — reopening does not duplicate the work', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const taskDir = path.join(dir, '.ayna', 'tasks', 'task-0001');
       await mkdir(taskDir, { recursive: true });
@@ -172,8 +219,8 @@ describe('upgrading a store that already has work in it', () => {
         JSON.stringify({ id: 'task-0001', status: 'open', comment: 'once', createdAt: '2026-08-01T00:00:00.000Z' }),
       );
 
-      await openStore(dir);
-      const store = await openStore(dir);
+      own(await openStore(dir));
+      const store = own(await openStore(dir));
       const all = await store.list();
 
       assert.equal(all.length, 1, `reopening duplicated the store: ${all.map((t) => t.id).join(', ')}`);
@@ -189,7 +236,7 @@ describe('upgrading a store that already has work in it', () => {
       window claiming the manifest key first, every comment the user made would
       appear twice — once as itself and once as its own transcript.
     */
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const session = '2026-08-04T10-00-00';
       const out = path.join(dir, '.ayna', 'comments', session);
@@ -199,7 +246,7 @@ describe('upgrading a store that already has work in it', () => {
         JSON.stringify({ url: 'http://x/', comments: [{ id: 1, n: 1, comment: 'widen this nav bar' }] }),
       );
 
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       await store.create({ legacyKey: `${session}#1`, comment: 'widen this nav bar', url: 'http://x/' });
 
       const result = await importLegacy(dir, store);
@@ -213,7 +260,7 @@ describe('upgrading a store that already has work in it', () => {
   test('a deleted task stays deleted', async () => {
     // The ledger outliving the store is what stops a comment the user removed
     // coming back on the next read.
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const session = '2026-08-04T11-00-00';
       const out = path.join(dir, '.ayna', 'comments', session);
@@ -223,7 +270,7 @@ describe('upgrading a store that already has work in it', () => {
         JSON.stringify({ url: 'http://x/', comments: [{ id: 1, n: 1, comment: 'gone' }] }),
       );
 
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       await importLegacy(dir, store);
       const [t] = await store.list();
       await store.remove(t.id);
@@ -236,7 +283,7 @@ describe('upgrading a store that already has work in it', () => {
   });
 
   test('a corrupt task directory is skipped, not fatal', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
       const bad = path.join(dir, '.ayna', 'tasks', 'task-0001');
       const good = path.join(dir, '.ayna', 'tasks', 'task-0002');
@@ -248,7 +295,7 @@ describe('upgrading a store that already has work in it', () => {
         JSON.stringify({ id: 'task-0002', status: 'open', comment: 'fine', createdAt: '2026-08-01T00:00:00.000Z' }),
       );
 
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const all = await store.list();
       assert.equal(all.length, 1);
       assert.equal(all[0].comment, 'fine');
@@ -260,9 +307,9 @@ describe('upgrading a store that already has work in it', () => {
 
 describe('what is owed', () => {
   test('counts anything not settled, and settles only on approval or obsolescence', async () => {
-    const { dir, dispose } = await tempDir();
+    const { dir, own, dispose } = await tempDir();
     try {
-      const store = await openStore(dir);
+      const store = own(await openStore(dir));
       const a = await store.create({ comment: 'a' });
       const b = await store.create({ comment: 'b' });
       const c = await store.create({ comment: 'c' });

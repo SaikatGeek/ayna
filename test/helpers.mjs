@@ -2,10 +2,28 @@ import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-/** A scratch directory that cleans itself up when the returned dispose() runs. */
+/**
+ * A scratch directory that cleans itself up when the returned dispose() runs.
+ *
+ * Pass anything opened inside it through `own()` and dispose closes it before
+ * deleting. Windows will not delete a file that is still open, so a store left
+ * open made the cleanup fail with EBUSY, and that error replaced whatever the
+ * test itself had found.
+ */
 export async function tempDir(prefix = 'ayna-test-') {
   const dir = await mkdtemp(path.join(tmpdir(), prefix));
-  return { dir, dispose: () => rm(dir, { recursive: true, force: true }) };
+  const owned = [];
+  return {
+    dir,
+    own: (handle) => {
+      owned.push(handle);
+      return handle;
+    },
+    dispose: async () => {
+      for (const handle of owned.splice(0).reverse()) handle.close();
+      await rm(dir, { recursive: true, force: true });
+    },
+  };
 }
 
 /** Writes a tiny site into `dir` so browser tests have something real to render. */
