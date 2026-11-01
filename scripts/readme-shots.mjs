@@ -107,7 +107,9 @@ async function main() {
     },
   });
 
-  await Promise.race([done, new Promise((r) => setTimeout(r, 90_000))]);
+  // A cap, not a wait: the timer stays pending after a run that finished early,
+  // and a referenced one kept the process alive for the rest of the 90 seconds.
+  await Promise.race([done, new Promise((r) => setTimeout(r, 90_000).unref())]);
   await browser.close().catch(() => {});
   await server.close?.();
   // Windows will not delete the database while this process still has it open.
