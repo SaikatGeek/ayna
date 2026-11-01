@@ -312,10 +312,12 @@ describe('portable source scan (used where grep is unavailable, e.g. Windows)', 
       await writeFile(path.join(dir, 'src', 'page.html'), 'line one\n<h1 class="hero-title">Hi</h1>\nline three\n');
       const out = await scanInJs(dir, 'hero-title');
       assert.equal(out.length, 1);
-      const [file, line, ...rest] = out[0].split(':');
+      // Parsed the way findInSource reads grep: splitting on ':' stops at the
+      // drive letter of a Windows path.
+      const [, file, line, preview] = out[0].match(/^(.+?):(\d+):(.*)$/) ?? [];
       assert.match(file, /page\.html$/);
       assert.equal(line, '2', 'reports the correct 1-based line number');
-      assert.match(rest.join(':'), /hero-title/);
+      assert.match(preview, /hero-title/);
     } finally {
       await dispose();
     }
