@@ -22,8 +22,12 @@
     the window, bounded at both ends, follows the window by itself, and because
     the page's inset points at this same expression a window resize still costs
     no script at all. Dragging the rail's edge overrides it with --ayna-rail-w.
+
+    The ceiling came down from 480px: at 24vw a 1920px screen gave the rail
+    460px, and a conversation column reads best well short of that — the page
+    is what the window is for.
   */
-  const RAIL_AUTO = 'clamp(300px, 24vw, 480px)';
+  const RAIL_AUTO = 'clamp(300px, 22vw, 400px)';
   const RAIL_W = `var(--ayna-rail-w, ${RAIL_AUTO})`;
   const state = {
     picking: true,
@@ -86,9 +90,11 @@
       position: fixed; z-index: 2147483647; left: var(--ayna-inset-left, 0px); right: 0; top: 0;
       display: flex; align-items: center; gap: 12px;
       flex-wrap: wrap; justify-content: center;
-      background: var(--ayna-bar, #0d0d0f); color: var(--ayna-text, #f4f2ef); padding: 10px 16px;
+      background: var(--ayna-bar, #ffffff); color: var(--ayna-text, #17171a); padding: 10px 16px;
       font: 13px/1.4 -apple-system, system-ui, sans-serif;
-      box-shadow: 0 2px 18px rgba(0,0,0,.35);
+      /* A hairline, not a drop shadow: paper meets paper, and an inset line
+         keeps the bar exactly the height the page was moved down by. */
+      box-shadow: inset 0 -1px 0 var(--ayna-line, #e6e6eb);
     }
     /* Left group, mode group, actions: the bar is a layout, not a queue. */
     .${NS}-bar > .${NS}-barside { display: flex; align-items: center; gap: 10px; flex: 1 1 0; }
@@ -105,29 +111,30 @@
     .${NS}-bar button { white-space: nowrap; }
     .${NS}-bar > .${NS}-barside:not(.${NS}-baractions) { min-width: 0; }
     .${NS}-brand {
-      font-weight: 700; letter-spacing: .02em; opacity: .55; text-transform: lowercase;
+      font-weight: 700; letter-spacing: .02em; opacity: .7; text-transform: lowercase;
     }
-    .${NS}-hint { opacity: .62; }
+    /* No opacity on the hint: it is already inked in the dimmest colour, and
+       62% of that measured 2.5:1 on screen while its colour said 5.0:1. */
     .${NS}-bar .${NS}-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     /* A segmented control: which mode is on is a fact, not something to infer. */
     .${NS}-modes {
-      display: flex; gap: 2px; background: rgba(255,255,255,.06); border-radius: 999px; padding: 2px;
+      display: flex; gap: 2px; background: var(--ayna-wash, #f3f3f6); border-radius: 999px; padding: 3px;
     }
 
     /* The crop leads the box: on a canvas it is the entire comment. */
     .${NS}-preview:empty { display: none; }
     .${NS}-preview {
       position: relative; margin-bottom: 10px; border-radius: 8px; overflow: hidden;
-      background: var(--ayna-panel, #121214); border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10)); min-height: 34px;
+      background: var(--ayna-wash, #f3f3f6); border: 1px solid var(--ayna-panel-line, #e6e6eb); min-height: 34px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; color: var(--ayna-dim, rgba(255,255,255,.46));
+      font-size: 12px; color: var(--ayna-dim, #6e6e7a);
     }
     .${NS}-preview img { display: block; width: 100%; max-height: 150px; object-fit: contain; }
     .${NS}-cap {
       position: absolute; left: 6px; bottom: 6px; background: rgba(0,0,0,.72);
       color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
     }
-    .${NS}-esc { margin-right: auto; font-size: 12px; color: var(--ayna-dim, rgba(255,255,255,.46)); }
+    .${NS}-esc { margin-right: auto; font-size: 12px; color: var(--ayna-dim, #6e6e7a); }
     /* The verdict buttons appear at two sizes; the card is the comfortable one. */
     .${NS}-card .${NS}-ok, .${NS}-card .${NS}-no {
       height: auto; padding: 7px 14px; border-radius: 8px;
@@ -143,11 +150,16 @@
       are reviewing is not a panel, it is an obstruction.
     */
     /*
-      The palette is lifted from the trace viewer in
-      disler/super-simple-software-factory: a near-black canvas, hairline grid,
-      and one saturated colour per actor. It reads as an instrument rather than a
-      chat window, which is what this is — and it matches the terminals this sits
-      next to instead of fighting them.
+      A conversation with an instrument in it.
+
+      The first palette here was lifted from the trace viewer in
+      disler/super-simple-software-factory — a near-black canvas and one
+      saturated colour per actor — and beside a light app it read as a second
+      application bolted onto the first: six hues, a quarter of the window, and
+      the page under review the quieter of the two. It is paper now, like the
+      app next to it. People are told apart the way a chat is read — your words
+      on the right, Claude's under a name — so the hues per actor could go, and
+      only a verdict still gets a colour.
     */
     /*
       A rail down the left, not a shelf across the bottom.
@@ -157,10 +169,6 @@
       mostly read out of the corner of an eye. A column is cheap: a page has
       horizontal room to spare and almost never has vertical room to spare, and
       lines of text are already a tall narrow shape.
-
-      Translucent because the space is reserved, so what shows through is the
-      page's own background rather than its content — enough to feel part of the
-      app instead of a panel bolted onto it.
     */
     .${NS}-console {
       position: fixed; left: 0; top: 0; bottom: 0; z-index: 2147483646;
@@ -169,38 +177,30 @@
          1px border outside the width, the rail covered the app's first pixel. */
       width: ${RAIL_W}; box-sizing: border-box;
       /*
-        Translucent, and still dark over a white app.
+        Opaque.
 
-        70% of a near-black over a WHITE page averages to mid-grey — which is
-        exactly what a screenshot showed: a flat #4a4a4a slab down the left,
-        reading as broken rather than as glass. Transparency alone cannot hold a
-        dark rail over a light page; the blur is what makes it read as a pane
-        with the app behind it instead of a grey fill.
-
-        A backdrop blur does not fix it either: blurring a uniform white page
-        returns white. So the tint is chosen from what is actually behind —
-        see setRailTint. A dark app gets the asked-for ~30% see-through; a light
-        one gets enough opacity to stay dark, because a grey slab is not glass.
+        A translucent rail is an average with whatever is behind it, and it took
+        a tint measured off the page, a ramp and a backdrop blur to stop a dark
+        one averaging to a grey slab over a white app. The space is reserved, so
+        there is no content under the rail to show through in the first place —
+        only the page's background, which a paper rail already matches.
       */
-      background: color-mix(in srgb, var(--ayna-surface, #0a0a0b) var(--ayna-rail-tint, 88%), transparent);
-      color: var(--ayna-text, #f4f2ef);
-      border-right: 1px solid var(--ayna-line, rgba(255,255,255,.075));
+      background: var(--ayna-surface, #ffffff);
+      color: var(--ayna-text, #17171a);
+      border-right: 1px solid var(--ayna-line, #e6e6eb);
       display: flex; flex-direction: column;
       /* Prose in the sans; monospace is kept for what is machine-shaped —
-         times, ids, the round marker — the way a terminal UI uses it. */
+         times and ids. */
       font: 13px/1.5 -apple-system, system-ui, sans-serif;
-    }
-    @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-      .${NS}-console {
-        -webkit-backdrop-filter: blur(22px) saturate(1.4);
-        backdrop-filter: blur(22px) saturate(1.4);
-      }
+      text-shadow: none;
     }
     /* Collapsed to a spine: still legible, costs 34px. */
     .${NS}-console.${NS}-min { width: 34px; }
     .${NS}-console.${NS}-min .${NS}-console-title,
+    .${NS}-console.${NS}-min .${NS}-mark,
+    .${NS}-console.${NS}-min .${NS}-status,
     .${NS}-console.${NS}-min .${NS}-agents { display: none; }
-    .${NS}-console.${NS}-min .${NS}-console-head { padding: 8px 4px; justify-content: center; }
+    .${NS}-console.${NS}-min .${NS}-console-head { padding: 10px 4px; justify-content: center; }
     .${NS}-console.${NS}-min .${NS}-console-head .${NS}-spacer { display: none; }
     .${NS}-console.${NS}-min .${NS}-console-head button { padding: 2px 6px; font-size: 14px; }
     /* The edge you drag to make it wider. Double-click puts it back. */
@@ -212,184 +212,231 @@
       content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px;
       background: transparent; transition: background .15s;
     }
-    .${NS}-grip:hover::after, .${NS}-grip.${NS}-dragging::after { background: var(--ayna-accent, #de9446); }
+    .${NS}-grip:hover::after, .${NS}-grip.${NS}-dragging::after { background: var(--ayna-accent-strong, #a8641f); }
     .${NS}-console.${NS}-min .${NS}-grip { display: none; }
+    /*
+      As tall as the bar beside it, so the two hairlines meet as one line.
+      On paper a 6px step between them is the first thing the eye finds; the
+      bar's height is already measured for the page's inset (--ayna-bar-h).
+    */
     .${NS}-console-head {
-      display: flex; align-items: center; gap: 7px; padding: 8px 14px; flex-wrap: wrap;
-      border-bottom: 1px solid var(--ayna-line, rgba(255,255,255,.075)); flex: none;
-      font: 600 12px/1.4 -apple-system, system-ui, sans-serif;
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 14px; flex-wrap: wrap;
+      min-height: var(--ayna-bar-h, 53px); box-sizing: border-box; align-content: center;
+      border-bottom: 1px solid var(--ayna-line, #e6e6eb); flex: none;
+      font: 600 13px/1.4 -apple-system, system-ui, sans-serif;
     }
-    .${NS}-console-head .${NS}-dotlive {
-      width: 7px; height: 7px; border-radius: 50%; background: var(--ayna-good, #7bc47f); flex: none;
+    /* A mirror, half of it lit — which is what the word means. */
+    .${NS}-mark {
+      width: 18px; height: 18px; border-radius: 50%; flex: none; box-sizing: border-box;
+      border: 1.5px solid var(--ayna-text, #17171a);
+      background: linear-gradient(90deg, var(--ayna-text, #17171a) 50%, transparent 50%);
     }
+    /*
+      Where the round stands, in words.
+
+      This was a green dot that was always green, which said only that the
+      window was open — something the window being open already says.
+    */
+    .${NS}-status {
+      display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px;
+      border: 1px solid var(--ayna-line, #e6e6eb); border-radius: 999px;
+      color: var(--ayna-muted, #5f5f6b); font: 500 11.5px/1.6 -apple-system, system-ui, sans-serif;
+    }
+    .${NS}-status::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none;
+      background: var(--ayna-dim, #6e6e7a);
+    }
+    .${NS}-status[data-phase=waiting]::before {
+      background: var(--ayna-accent, #de9446); animation: ${NS}-breathe 1.6s ease-in-out infinite;
+    }
+    .${NS}-status[data-phase=review]::before { background: var(--ayna-accent, #de9446); }
+    @keyframes ${NS}-breathe { 50% { opacity: .3; } }
     .${NS}-console-head button {
-      background: transparent; border: 0; color: var(--ayna-muted, rgba(255,255,255,.62)); cursor: pointer;
-      font: inherit; padding: 2px 8px; border-radius: 6px;
+      background: transparent; border: 0; color: var(--ayna-muted, #5f5f6b); cursor: pointer;
+      font: 500 15px/1 -apple-system, system-ui, sans-serif; padding: 5px 8px; border-radius: 7px;
     }
-    .${NS}-console-head button:hover { background: var(--ayna-line, rgba(255,255,255,.075)); color: var(--ayna-text, #f4f2ef); }
+    .${NS}-console-head button:hover { background: var(--ayna-wash, #f3f3f6); color: var(--ayna-text, #17171a); }
     .${NS}-console-head .${NS}-spacer { margin-left: auto; }
     .${NS}-agents { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; flex: 1 1 100%; }
     .${NS}-agents:empty { display: none; }
     .${NS}-agent {
       display: inline-flex; align-items: center; gap: 6px;
-      border: 1px solid var(--ayna-line, rgba(255,255,255,.075)); border-radius: 999px; padding: 1px 7px;
-      font: 500 10.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
-      color: var(--ayna-muted, rgba(255,255,255,.62));
+      background: var(--ayna-wash, #f3f3f6); border: 1px solid transparent; border-radius: 999px;
+      padding: 1px 8px; color: var(--ayna-muted, #5f5f6b);
+      font: 500 11px/1.6 -apple-system, system-ui, sans-serif;
     }
-    .${NS}-agent i { width: 7px; height: 7px; border-radius: 2px; flex: none; }
-    .${NS}-agent b { color: var(--ayna-text, #f4f2ef); font-weight: 600; }
-    /* Running gets the pulse; idle is just outlined. Straight from the legend:
-       queued, running, done are three readable states, not one. */
-    .${NS}-agent.${NS}-busy { border-color: var(--ayna-live, #e0b978); }
-    .${NS}-agent.${NS}-busy i { animation: ${NS}-pulse 2.4s ease-in-out infinite; }
-    @keyframes ${NS}-pulse {
-      0%, 100% { box-shadow: 0 0 2px rgba(224,185,120,.30); }
-      50% { box-shadow: 0 0 9px rgba(224,185,120,.75); }
-    }
+    .${NS}-agent i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+    .${NS}-agent b { color: var(--ayna-text, #17171a); font-weight: 600; }
+    /* Running gets an outline and a breath; idle is just a chip. Straight from
+       the legend: queued, running, done are three readable states, not one. */
+    .${NS}-agent.${NS}-busy { border-color: var(--ayna-live, #a8641f); background: transparent; }
+    .${NS}-agent.${NS}-busy i { animation: ${NS}-breathe 1.6s ease-in-out infinite; }
     .${NS}-console-lines {
-      overflow-y: auto; padding: 12px 14px; flex: 1 1 auto; min-height: 0;
-    }
-    .${NS}-empty { padding: 4px 0 0; }
-    .${NS}-empty p { margin: 0; }
-    .${NS}-empty-lead {
-      color: var(--ayna-muted, rgba(255,255,255,.62));
-      font: 600 13px/1.5 -apple-system, system-ui, sans-serif;
-    }
-    .${NS}-empty dl {
-      margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr;
-      gap: 6px 10px; align-items: baseline;
-    }
-    .${NS}-empty dt {
-      color: var(--ayna-accent, #de9446);
-      font: 600 12px/1.45 -apple-system, system-ui, sans-serif;
-    }
-    .${NS}-empty dd {
-      margin: 0; color: var(--ayna-dim, rgba(255,255,255,.46));
-      font: 12px/1.45 -apple-system, system-ui, sans-serif;
-    }
-    .${NS}-empty-foot {
-      margin-top: 14px; padding-top: 10px;
-      border-top: 1px solid var(--ayna-line, rgba(255,255,255,.075));
-      color: var(--ayna-dim, rgba(255,255,255,.46));
-      font: 12px/1.45 -apple-system, system-ui, sans-serif;
+      overflow-y: auto; padding: 14px; flex: 1 1 auto; min-height: 0;
+      display: flex; flex-direction: column; gap: 14px;
     }
     /*
-      Let a line be a line.
+      An empty rail says what to do, not that it is empty.
 
-      As a flex row with a wrapping text child, every entry cost two rows and a
-      ragged gap — a log that is mostly glanced at should be dense, and a
-      terminal is dense because its text simply flows. Inline, wrapping under
-      itself, is both smaller and more familiar.
+      Before anything happens this is most of the window's height, and it used
+      to hold "Nothing yet." over a legend of the four modes — an apology, then
+      the mode bar again one strip below the mode bar. The modes explain
+      themselves in their tooltips. What a first look needs is the one thing to
+      do, and what happens after it.
     */
-    /*
-      One rule, not two fighting.
-
-      A flex row with fixed-width time and lane columns made sense across the
-      bottom of a wide window; in a 216px rail it left the message a 60px gutter
-      to wrap inside, one word per line. Text flows instead — which is what a
-      terminal line has always been.
-    */
+    .${NS}-welcome { padding: 14px 4px 0; }
+    .${NS}-welcome-icon {
+      width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+      background: var(--ayna-wash, #f3f3f6); color: var(--ayna-text, #17171a);
+    }
+    .${NS}-welcome-icon svg { width: 20px; height: 20px; display: block; }
+    .${NS}-welcome-title {
+      margin-top: 14px; color: var(--ayna-text, #17171a); letter-spacing: -.01em;
+      font: 600 15px/1.35 -apple-system, system-ui, sans-serif;
+    }
+    .${NS}-welcome-body {
+      margin-top: 6px; color: var(--ayna-muted, #5f5f6b);
+      font: 12.5px/1.55 -apple-system, system-ui, sans-serif;
+    }
+    .${NS}-welcome-steps { margin-top: 18px; display: grid; gap: 10px; }
+    .${NS}-welcome-steps div {
+      display: flex; align-items: center; gap: 10px; color: var(--ayna-text, #17171a);
+      font: 12.5px/1.4 -apple-system, system-ui, sans-serif;
+    }
+    .${NS}-welcome-steps i {
+      width: 20px; height: 20px; border-radius: 50%; flex: none; box-sizing: border-box;
+      display: grid; place-items: center; font-style: normal;
+      border: 1px solid var(--ayna-line, #e6e6eb); color: var(--ayna-muted, #5f5f6b);
+      font: 500 11px/1 -apple-system, system-ui, sans-serif;
+    }
     /*
       A conversation and an instrument, told apart.
 
-      Every entry was the same 11.5px monospace line — time, lane, text — so
-      "make the hook bigger" and "3 faults found" read as the same kind of thing,
-      and the person's own words, inked amber, were the hardest line on the rail
-      to read. Now what somebody said is prose under their name, and what
-      happened is a step: a glyph, a title, the detail dimmed beneath it.
+      Every entry used to be the same 11.5px monospace line — time, lane, text —
+      so "make the hook bigger" and "3 faults found" read as the same kind of
+      thing. What somebody said is a message: Claude's under a name and an
+      initial, yours in a bubble on the right, where a chat has always put
+      them. What happened is a step: a mark, a title, the detail dimmed under it.
 
       The DOM order is unchanged — time, who, text — and the grid places it, so
       anything reading a line's first span still gets the text.
     */
     .${NS}-line {
-      display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px;
-      grid-template-areas: "who at" "text text";
-      padding: 8px 0 4px; word-break: break-word;
+      display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 9px;
+      grid-template-areas: "av who at" ". text text";
+      word-break: break-word;
     }
-    .${NS}-line > b { grid-area: who; font: 600 12px/1.5 -apple-system, system-ui, sans-serif; }
+    .${NS}-line > b {
+      grid-area: who; align-self: center; color: var(--ayna-text, #17171a);
+      font: 600 12.5px/1.4 -apple-system, system-ui, sans-serif;
+    }
     .${NS}-at {
       grid-area: at; align-self: center; font-style: normal;
-      color: var(--ayna-dim, rgba(255,255,255,.46));
-      font: 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--ayna-dim, #6e6e7a);
+      font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     }
-    .${NS}-line > span { grid-area: text; color: var(--ayna-text, #f4f2ef); }
-    .${NS}-line[data-lane=you] > b { color: var(--ayna-you, #e8b478); }
-    .${NS}-line[data-lane=claude] > b { color: var(--ayna-agent, #c9a2e8); }
-    /* Their words, set apart the way a quoted message is — not recoloured. */
+    .${NS}-line > span { grid-area: text; color: var(--ayna-text, #17171a); font-size: 13px; line-height: 1.5; }
+    /* Claude's initial, the way a chat shows who is talking. */
+    .${NS}-line[data-kind=message]::before {
+      content: 'C'; grid-area: av; align-self: center; width: 22px; height: 22px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: var(--ayna-text, #17171a); color: var(--ayna-surface, #ffffff);
+      font: 600 11px/1 -apple-system, system-ui, sans-serif;
+    }
+    .${NS}-line[data-kind=message] > span { margin-top: 2px; }
+    /* Yours: the name and time above, right-aligned, then the bubble. */
+    .${NS}-line[data-kind=you] {
+      grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 6px;
+      grid-template-areas: ". who at" "text text text";
+      justify-items: end;
+    }
+    .${NS}-line[data-kind=you] > b {
+      color: var(--ayna-dim, #6e6e7a); font: 500 11px/1.4 -apple-system, system-ui, sans-serif;
+    }
     .${NS}-line[data-kind=you] > span {
-      margin-top: 4px; padding: 7px 10px; border-radius: 8px;
-      background: rgba(255,255,255,.045);
-      border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10));
+      max-width: 88%; margin-top: 4px; padding: 7px 11px; border-radius: 12px 12px 4px 12px;
+      background: var(--ayna-wash, #f3f3f6);
     }
     /* The same speaker again is a new paragraph, not a new header. */
-    .${NS}-line.${NS}-cont { grid-template-areas: "text text"; padding-top: 2px; }
+    .${NS}-line.${NS}-cont { grid-template-areas: ". text text"; margin-top: -10px; }
+    .${NS}-line.${NS}-cont::before { content: none; }
+    .${NS}-line[data-kind=you].${NS}-cont { grid-template-areas: "text text text"; }
     .${NS}-line.${NS}-cont > b,
     .${NS}-line.${NS}-cont > .${NS}-at { display: none; }
 
     .${NS}-line[data-step] {
-      grid-template-columns: 14px minmax(0, 1fr); column-gap: 10px;
+      grid-template-columns: 22px minmax(0, 1fr); column-gap: 9px;
       grid-template-areas: "glyph text" "glyph detail";
-      padding: 8px 0; margin-top: 4px;
-      border-top: 1px solid var(--ayna-line, rgba(255,255,255,.075));
     }
-    .${NS}-line[data-step] + .${NS}-line[data-step] { margin-top: 0; }
-    .${NS}-phase + .${NS}-line[data-step] { border-top: 0; }
     .${NS}-line[data-step] > b {
-      grid-area: glyph; text-align: center;
-      color: var(--ayna-dim, rgba(255,255,255,.46));
-      font: 600 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      grid-area: glyph; align-self: start; width: 22px; height: 22px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: var(--ayna-wash, #f3f3f6); color: var(--ayna-muted, #5f5f6b);
+      font: 600 11.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     /* A step's time is in its tooltip; on every row it was 40px of "00:00". */
     .${NS}-line[data-step] > .${NS}-at { display: none; }
-    .${NS}-line[data-step] > span { font-weight: 500; font-size: 12.5px; }
+    .${NS}-line[data-step] > span { font-weight: 600; font-size: 12.5px; padding-top: 2px; }
     .${NS}-line[data-step] > small {
-      grid-area: detail; color: var(--ayna-dim, rgba(255,255,255,.46));
+      grid-area: detail; color: var(--ayna-dim, #6e6e7a);
       font: 11.5px/1.45 -apple-system, system-ui, sans-serif;
     }
-    .${NS}-line[data-tone=good] > b { color: var(--ayna-good, #7bc47f); }
-    .${NS}-line[data-tone=warn] > b { color: var(--ayna-warn, #e0a458); }
-    .${NS}-line[data-tone=live] > b { color: var(--ayna-live, #e0b978); }
-    /* The gate is the answer to "is it actually fixed?" — it gets to be loud. */
-    .${NS}-line[data-kind=gate][data-tone=warn] > span { color: var(--ayna-warn, #e0a458); }
-
-    .${NS}-phase {
-      display: flex; align-items: center; gap: 8px; margin: 16px 0 2px;
-      color: var(--ayna-dim, rgba(255,255,255,.46));
-      font: 500 10.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    .${NS}-line[data-tone=good] > b {
+      color: var(--ayna-good, #1e7f45);
+      background: color-mix(in srgb, var(--ayna-good, #1e7f45) 12%, var(--ayna-surface, #ffffff));
     }
-    .${NS}-phase::after {
-      content: ''; flex: 1; height: 1px; background: var(--ayna-line, rgba(255,255,255,.075));
+    .${NS}-line[data-tone=warn] > b {
+      color: var(--ayna-warn, #a15c07);
+      background: color-mix(in srgb, var(--ayna-warn, #a15c07) 12%, var(--ayna-surface, #ffffff));
+    }
+    .${NS}-line[data-tone=live] > b {
+      color: var(--ayna-live, #a8641f);
+      background: color-mix(in srgb, var(--ayna-accent, #de9446) 16%, var(--ayna-surface, #ffffff));
+    }
+    /*
+      The gate is the answer to "is it actually fixed?" — it gets to be a card,
+      tinted with its verdict. 7% keeps the dimmed detail above 4.5:1 on the tint.
+    */
+    .${NS}-line[data-kind=gate] {
+      padding: 9px 10px; border-radius: 10px;
+      background: color-mix(in srgb, var(--ayna-good, #1e7f45) 7%, var(--ayna-surface, #ffffff));
+    }
+    .${NS}-line[data-kind=gate][data-tone=warn] {
+      background: color-mix(in srgb, var(--ayna-warn, #a15c07) 7%, var(--ayna-surface, #ffffff));
+    }
+    .${NS}-line[data-kind=gate] > b { background: var(--ayna-surface, #ffffff); }
+    .${NS}-line[data-kind=gate][data-tone=good] > span { color: var(--ayna-good, #1e7f45); }
+    .${NS}-line[data-kind=gate][data-tone=warn] > span { color: var(--ayna-warn, #a15c07); }
+
+    /* A round is a chapter: its name between two rules. */
+    .${NS}-phase {
+      display: flex; align-items: center; gap: 10px; margin-top: 4px;
+      color: var(--ayna-dim, #6e6e7a);
+      font: 500 11.5px/1.4 -apple-system, system-ui, sans-serif;
+    }
+    .${NS}-phase::before, .${NS}-phase::after {
+      content: ''; flex: 1; height: 1px; background: var(--ayna-line, #e6e6eb);
     }
     .${NS}-phase:first-child { margin-top: 0; }
-    /*
-      Neon, in the sense that matters: saturated ink on near-black.
-
-      The instinct is to reach for a halo, and a coloured glow on a dark surface
-      is the single most reliable tell of a generated interface — impeccable has
-      a rule for it and ayna's own chrome was caught by that rule once already.
-      Full-chroma text on a dark ground reads as neon without it, and stays
-      readable, which a glow actively works against.
-    */
-    .${NS}-console { text-shadow: none; }
     /* Anchored to the bottom centre: near the element without covering it, and
        in the same place every time so the eye stops hunting for it. */
     .${NS}-preview-bar {
       position: fixed; z-index: 2147483647; left: 50%; bottom: 24px;
       transform: translateX(-50%); display: flex; align-items: center; gap: 8px;
-      background: var(--ayna-bar, #0d0d0f); color: var(--ayna-text, #f4f2ef);
-      border: 1px solid var(--ayna-line, rgba(255,255,255,.075)); border-radius: 999px;
+      background: var(--ayna-bar, #ffffff); color: var(--ayna-text, #17171a);
+      border: 1px solid var(--ayna-line, #e6e6eb); border-radius: 999px;
       padding: 7px 9px 7px 15px;
       font: 600 12px/1 -apple-system, system-ui, sans-serif;
-      box-shadow: 0 3px 10px rgba(0,0,0,.35);
+      box-shadow: 0 8px 24px rgba(15,15,20,.14), 0 2px 6px rgba(15,15,20,.08);
     }
     .${NS}-preview-bar button {
       border: 0; border-radius: 999px; padding: 6px 12px; cursor: pointer;
-      font: inherit; background: rgba(255,255,255,.08); color: var(--ayna-text, #f4f2ef);
+      font: inherit; background: var(--ayna-wash, #f3f3f6); color: var(--ayna-text, #17171a);
     }
     .${NS}-preview-bar button[data-act=prev],
     .${NS}-preview-bar button[data-act=next] { padding: 6px 10px; }
-    .${NS}-preview-bar .${NS}-ok { background: var(--ayna-good, #7bc47f); color: var(--ayna-on-good, #0a0a0a); }
-    .${NS}-preview-bar .${NS}-no { background: rgba(255,255,255,.08); color: var(--ayna-text, #f4f2ef); }
+    .${NS}-preview-bar .${NS}-ok { background: var(--ayna-good, #1e7f45); color: var(--ayna-on-good, #ffffff); }
+    .${NS}-preview-bar .${NS}-no { background: var(--ayna-wash, #f3f3f6); color: var(--ayna-text, #17171a); }
     /*
       One box, the send inside it.
 
@@ -397,26 +444,36 @@
       the bar was the loudest thing on the rail whether or not there was
       anything to send. The arrow only lights once there is.
     */
-    .${NS}-console-say { flex: none; padding: 10px 12px 12px; border-top: 1px solid var(--ayna-line, rgba(255,255,255,.075)); }
+    .${NS}-console-say { flex: none; padding: 10px 12px 12px; border-top: 1px solid var(--ayna-line, #e6e6eb); }
     .${NS}-say-box {
-      display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 12px;
-      background: rgba(0,0,0,.32); border-radius: 10px;
-      border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10));
+      display: flex; align-items: center; gap: 6px; padding: 5px 5px 5px 12px;
+      background: var(--ayna-surface, #ffffff); border-radius: 12px;
+      border: 1px solid var(--ayna-line, #e6e6eb);
+      transition: border-color .15s, box-shadow .15s;
     }
-    .${NS}-say-box:focus-within { border-color: var(--ayna-you, #e8b478); }
+    /* The ring is the gold as ink: the fill gold is 2.49:1 against white, under
+       the 3:1 a focus indicator needs — the floor ayna checks everyone else for. */
+    .${NS}-say-box:focus-within {
+      border-color: var(--ayna-accent-strong, #a8641f);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--ayna-accent, #de9446) 22%, transparent);
+    }
     .${NS}-console-say input {
       flex: 1; min-width: 0; background: transparent; border: 0; outline: none; padding: 6px 0;
-      color: var(--ayna-text, #f4f2ef); font: 13px/1.4 -apple-system, system-ui, sans-serif;
+      color: var(--ayna-text, #17171a); font: 13px/1.4 -apple-system, system-ui, sans-serif;
     }
-    .${NS}-console-say input::placeholder { color: var(--ayna-dim, rgba(255,255,255,.46)); }
+    .${NS}-console-say input::placeholder { color: var(--ayna-dim, #6e6e7a); }
     .${NS}-console-say button {
-      flex: none; width: 30px; height: 30px; border: 0; border-radius: 7px; cursor: pointer;
+      flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; cursor: pointer;
       display: grid; place-items: center;
       background: var(--ayna-accent, #de9446); color: var(--ayna-on-accent, #0a0a0a);
       font: 600 15px/1 -apple-system, system-ui, sans-serif;
     }
     .${NS}-console-say input:placeholder-shown + button {
-      background: rgba(255,255,255,.08); color: var(--ayna-dim, rgba(255,255,255,.46)); cursor: default;
+      background: var(--ayna-wash, #f3f3f6); color: var(--ayna-dim, #6e6e7a); cursor: default;
+    }
+    .${NS}-say-hint {
+      margin: 6px 2px 0; color: var(--ayna-dim, #6e6e7a);
+      font: 11px/1.4 -apple-system, system-ui, sans-serif;
     }
     .${NS}-console.${NS}-min .${NS}-console-lines,
     .${NS}-console.${NS}-min .${NS}-console-say { display: none; }
@@ -431,15 +488,27 @@
       and the bar showed four buttons all claiming to be the main action.
     */
     .${NS}-modes button {
-      background: transparent; color: var(--ayna-text, #f4f2ef); font-weight: 600;
+      background: transparent; color: var(--ayna-muted, #5f5f6b); font-weight: 600;
       padding: 5px 13px; border-radius: 999px;
     }
-    .${NS}-modes button:hover { background: rgba(255,255,255,.12); color: var(--ayna-text, #f4f2ef); }
-    .${NS}-modes button.${NS}-on { background: var(--ayna-text, #f4f2ef); color: var(--ayna-on-accent, #0a0a0a); }
+    .${NS}-modes button:hover {
+      background: color-mix(in srgb, var(--ayna-text, #17171a) 6%, transparent); color: var(--ayna-text, #17171a);
+    }
+    /*
+      The selected mode is a raised chip of the same paper, not an inverted one.
+
+      It used to paint --ayna-on-accent on a --ayna-text background — the ink
+      meant for gold, laid on a near-white pill — and once that ink was computed
+      as white, the selected label measured 1.12:1 and simply vanished.
+    */
+    .${NS}-modes button.${NS}-on {
+      background: var(--ayna-surface, #ffffff); color: var(--ayna-text, #17171a);
+      box-shadow: 0 0 0 1px var(--ayna-line, #e6e6eb), 0 1px 2px rgba(15,15,20,.06);
+    }
     .${NS}-count { opacity: .7; }
     .${NS}-progress { font-weight: 600; opacity: .8; }
-    .${NS}-progress.${NS}-done { color: var(--ayna-good, #7bc47f); opacity: 1; }
-    .${NS}-warn { color: var(--ayna-warn, #e0a458); }
+    .${NS}-progress.${NS}-done { color: var(--ayna-good, #1e7f45); opacity: 1; }
+    .${NS}-warn { color: var(--ayna-warn, #a15c07); }
     .${NS}-tag {
       position: absolute; z-index: 2147483641; pointer-events: none;
       background: var(--ayna-accent, #de9446); color: var(--ayna-on-accent, #0a0a0a);
@@ -463,30 +532,36 @@
     .${NS}-marquee { text-shadow: 0 1px 2px rgba(0,0,0,.6); }
     .${NS}-drop {
       position: absolute; z-index: 2147483642; pointer-events: none;
-      background: var(--ayna-warn, #e0a458); border-radius: 2px;
+      background: var(--ayna-warn, #a15c07); border-radius: 2px;
       box-shadow: 0 0 0 2px rgba(245,158,11,.25);
     }
     .${NS}-picked {
       position: absolute; pointer-events: none; z-index: 2147483639;
-      border: 2px dashed var(--ayna-warn, #e0a458); background: rgba(222,148,70,.12); border-radius: 3px;
+      border: 2px dashed var(--ayna-warn, #a15c07); background: rgba(222,148,70,.12); border-radius: 3px;
     }
-    .${NS}-bar button:disabled { opacity: .4; cursor: not-allowed; }
+    /* Disabled is paper with dim ink, not a faded gold: gold at 40% over white
+       is a peach that still reads as the thing to press. */
+    .${NS}-bar button:disabled {
+      background: var(--ayna-wash, #f3f3f6); color: var(--ayna-dim, #6e6e7a); cursor: not-allowed;
+    }
     .${NS}-bar button.${NS}-ghost {
-      background: transparent; color: var(--ayna-text, #f4f2ef); border: 1px solid var(--ayna-line, rgba(255,255,255,.075));
+      background: transparent; color: var(--ayna-text, #17171a); border: 1px solid var(--ayna-line, #e6e6eb);
     }
+    .${NS}-bar button.${NS}-ghost:hover { background: var(--ayna-wash, #f3f3f6); }
     .${NS}-spin {
       width: 13px; height: 13px; border-radius: 50%; display: inline-block;
-      border: 2px solid var(--ayna-line, rgba(255,255,255,.075)); border-top-color: var(--ayna-you, #e8b478);
+      border: 2px solid var(--ayna-line, #e6e6eb); border-top-color: var(--ayna-accent-strong, #a8641f);
       animation: ${NS}-rot .7s linear infinite;
     }
     @keyframes ${NS}-rot { to { transform: rotate(360deg); } }
     .${NS}-pop {
       position: fixed; z-index: 2147483646; width: 320px; max-width: calc(100vw - 16px);
-      /* The panels follow the app too: a white card in a black UI is ayna
-         announcing itself rather than fitting in. */
-      background: var(--ayna-panel, #121214); color: var(--ayna-panel-text, #f4f2ef);
+      /* The panels are the rail's paper, so a comment box reads as part of the
+         same tool — and they follow a theme like everything else. */
+      background: var(--ayna-panel, #ffffff); color: var(--ayna-panel-text, #17171a);
       border-radius: 12px; padding: 14px;
-      box-shadow: 0 6px 20px rgba(0,0,0,.55); border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10));
+      box-shadow: 0 12px 32px rgba(15,15,20,.14), 0 2px 6px rgba(15,15,20,.08);
+      border: 1px solid var(--ayna-panel-line, #e6e6eb);
       font: 13px/1.5 -apple-system, system-ui, sans-serif;
       display: flex; flex-direction: column; gap: 0;
     }
@@ -495,51 +570,53 @@
     .${NS}-body { overflow: auto; min-height: 0; }
     .${NS}-pop textarea {
       width: 100%; min-height: 78px; resize: vertical; padding: 9px;
-      color: var(--ayna-panel-text, #f4f2ef);
-      border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10)); border-radius: 8px; font: inherit;
-      background: var(--ayna-panel, #121214);
+      color: var(--ayna-panel-text, #17171a);
+      border: 1px solid var(--ayna-panel-line, #e6e6eb); border-radius: 8px; font: inherit;
+      background: var(--ayna-panel, #ffffff);
     }
-    .${NS}-pop textarea:focus { outline: 2px solid var(--ayna-accent, #de9446); outline-offset: -1px; }
+    /* The gold as ink: a ring in the fill gold is 2.49:1 on white, under 3:1. */
+    .${NS}-pop textarea:focus { outline: 2px solid var(--ayna-accent-strong, #a8641f); outline-offset: -1px; }
     /*
       A footnote, not a field. Boxed and grey at the top of the panel it read as
       an input you were meant to fill in, and it occupied the line the crop should
       have had.
     */
     .${NS}-sel {
-      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ayna-dim, rgba(255,255,255,.46));
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ayna-dim, #6e6e7a);
       margin-top: 8px; word-break: break-all; max-height: 30px; overflow: hidden;
     }
     .${NS}-sel:empty { display: none; }
-    .${NS}-hint { color: var(--ayna-dim, rgba(255,255,255,.46)); font-size: 12px; margin: 8px 0; }
+    .${NS}-hint { color: var(--ayna-dim, #6e6e7a); font-size: 12px; margin: 8px 0; }
     .${NS}-acts {
       display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 2px;
-      padding-top: 10px; border-top: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10));
+      padding-top: 10px; border-top: 1px solid var(--ayna-panel-line, #e6e6eb);
     }
     .${NS}-act {
       font: 500 11.5px/1 -apple-system, system-ui, sans-serif;
       padding: 6px 10px; border-radius: 999px; cursor: pointer;
-      background: transparent; color: var(--ayna-muted, rgba(255,255,255,.62));
-      border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10));
+      background: transparent; color: var(--ayna-muted, #5f5f6b);
+      border: 1px solid var(--ayna-panel-line, #e6e6eb);
     }
     /* The one warm fill that is legitimate: it marks state, not a surface. */
     .${NS}-act:hover {
-      color: var(--ayna-text, #f4f2ef);
+      color: var(--ayna-text, #17171a);
       border-color: var(--ayna-accent, #de9446);
       background: rgba(222,148,70,.12);
     }
     .${NS}-act[data-busy] { opacity: .55; pointer-events: none; }
-    .${NS}-attach { color: var(--ayna-accent, #de9446); text-decoration: underline; cursor: pointer; }
-    .${NS}-pop.${NS}-dragover { outline: 2px dashed var(--ayna-accent, #de9446); outline-offset: 3px; }
+    /* A link is ink, so it takes the gold that can be read on white (4.66:1). */
+    .${NS}-attach { color: var(--ayna-accent-strong, #a8641f); text-decoration: underline; cursor: pointer; }
+    .${NS}-pop.${NS}-dragover { outline: 2px dashed var(--ayna-accent-strong, #a8641f); outline-offset: 3px; }
     .${NS}-thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
     .${NS}-auto { position: relative; display: inline-flex; }
     .${NS}-auto b {
       position: absolute; left: 2px; bottom: 2px; font-size: 8px; font-weight: 700;
       letter-spacing: .06em; text-transform: uppercase; color: #fff;
-      background: var(--ayna-good, #7bc47f); border-radius: 3px; padding: 1px 3px;
+      background: var(--ayna-good, #1e7f45); border-radius: 3px; padding: 1px 3px;
     }
     .${NS}-thumbs img {
       width: 48px; height: 48px; object-fit: cover;
-      border-radius: 6px; border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10));
+      border-radius: 6px; border: 1px solid var(--ayna-panel-line, #e6e6eb);
     }
     .${NS}-row {
       display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px;
@@ -553,8 +630,8 @@
       border: 1px solid var(--ayna-accent, #de9446);
     }
     .${NS}-cancel {
-      background: transparent; color: var(--ayna-panel-text, #f4f2ef);
-      border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10));
+      background: transparent; color: var(--ayna-panel-text, #17171a);
+      border: 1px solid var(--ayna-panel-line, #e6e6eb);
     }
     /*
       A comment you have just filed is not a warning.
@@ -572,7 +649,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.3); cursor: pointer; user-select: none;
     }
     /* Hover is where it says what clicking will do: remove it. */
-    .${NS}-pin:hover { background: var(--ayna-bad, #e0685f); color: var(--ayna-on-bad, #0a0a0a); }
+    .${NS}-pin:hover { background: var(--ayna-bad, #c93c37); color: var(--ayna-on-bad, #ffffff); }
     .${NS}-rev {
       position: absolute; z-index: 2147483638; pointer-events: none;
       /*
@@ -586,14 +663,14 @@
       border: 2px solid var(--ayna-accent, #de9446); background: rgba(59,130,246,.07);
       border-radius: 4px; transition: border-color .2s, background-color .2s;
     }
-    .${NS}-rev[data-status=approved] { border-color: var(--ayna-good, #7bc47f); background: rgba(123,196,127,.10); }
-    .${NS}-rev[data-status=in_progress] { border-color: var(--ayna-you, #e8b478); background: rgba(232,180,120,.10); }
-    .${NS}-rev[data-status=proposed] { border-color: var(--ayna-agent, #c9a2e8); background: rgba(201,162,232,.10); border-style: dashed; }
-    .${NS}-rev[data-status=rejected] { border-color: var(--ayna-bad, #e0685f); background: rgba(239,68,68,.10); }
+    .${NS}-rev[data-status=approved] { border-color: var(--ayna-good, #1e7f45); background: rgba(123,196,127,.10); }
+    .${NS}-rev[data-status=in_progress] { border-color: var(--ayna-you, #a8641f); background: rgba(232,180,120,.10); }
+    .${NS}-rev[data-status=proposed] { border-color: var(--ayna-agent, #7356c8); background: rgba(201,162,232,.10); border-style: dashed; }
+    .${NS}-rev[data-status=rejected] { border-color: var(--ayna-bad, #c93c37); background: rgba(239,68,68,.10); }
     .${NS}-revbar {
       position: absolute; z-index: 2147483644; display: flex; align-items: center; gap: 4px;
-      padding: 3px; border-radius: 999px; background: var(--ayna-bar, #0d0d0f);
-      box-shadow: 0 4px 14px rgba(0,0,0,.32); user-select: none;
+      padding: 3px; border-radius: 999px; background: var(--ayna-bar, #ffffff);
+      box-shadow: 0 0 0 1px var(--ayna-line, #e6e6eb), 0 4px 14px rgba(15,15,20,.16); user-select: none;
       font: 600 11px/1 -apple-system, system-ui, sans-serif;
     }
     .${NS}-revpin {
@@ -601,8 +678,8 @@
       background: var(--ayna-accent, #de9446); color: var(--ayna-on-accent, #0a0a0a); display: flex; align-items: center;
       justify-content: center; cursor: pointer; white-space: nowrap;
     }
-    .${NS}-revpin[data-status=resolved] { background: var(--ayna-good, #7bc47f); color: var(--ayna-on-good, #0a0a0a); }
-    .${NS}-revpin[data-status=rejected] { background: var(--ayna-bad, #e0685f); color: var(--ayna-on-bad, #0a0a0a); }
+    .${NS}-revpin[data-status=resolved] { background: var(--ayna-good, #1e7f45); color: var(--ayna-on-good, #ffffff); }
+    .${NS}-revpin[data-status=rejected] { background: var(--ayna-bad, #c93c37); color: var(--ayna-on-bad, #ffffff); }
     .${NS}-revbar button {
       border: 0; border-radius: 999px; height: 20px; padding: 0 9px; cursor: pointer;
       font: inherit; white-space: nowrap;
@@ -612,63 +689,69 @@
       in the card that opens from it — the same decision painted two ways
       depending on where you happened to click.
     */
-    .${NS}-ok { background: var(--ayna-good, #7bc47f); color: var(--ayna-on-good, #0a0a0a); }
-    .${NS}-no { background: rgba(255,255,255,.08); color: var(--ayna-text, #f4f2ef); }
+    .${NS}-ok { background: var(--ayna-good, #1e7f45); color: var(--ayna-on-good, #ffffff); }
+    .${NS}-no { background: var(--ayna-wash, #f3f3f6); color: var(--ayna-text, #17171a); }
     .${NS}-ok:hover { background: #166534; }
-    .${NS}-no:hover { background: var(--ayna-bad, #e0685f); color: var(--ayna-on-bad, #0a0a0a); }
+    .${NS}-no:hover { background: var(--ayna-bad, #c93c37); color: var(--ayna-on-bad, #ffffff); }
     .${NS}-panel {
       position: fixed; z-index: 2147483646; right: 16px; width: 340px;
       max-width: calc(100vw - 32px);
-      background: var(--ayna-bar, #0d0d0f); color: #e8eaf0; border: 1px solid #2a3140; border-radius: 14px;
-      box-shadow: 0 3px 8px rgba(0,0,0,.30); display: flex; flex-direction: column;
+      /* Themed like the comment box. This was the bar's colour behind literal
+         greys from an older dark palette, so a light bar would have left the
+         task list as pale text on white. */
+      background: var(--ayna-panel, #ffffff); color: var(--ayna-panel-text, #17171a);
+      border: 1px solid var(--ayna-panel-line, #e6e6eb); border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(15,15,20,.14), 0 2px 6px rgba(15,15,20,.08);
+      display: flex; flex-direction: column;
       font: 13px/1.5 -apple-system, system-ui, sans-serif; overflow: hidden;
     }
     .${NS}-panel-head {
       display: flex; align-items: center; gap: 8px; padding: 12px 14px; flex: none;
-      border-bottom: 1px solid #2a3140; font-weight: 600;
+      border-bottom: 1px solid var(--ayna-panel-line, #e6e6eb); font-weight: 600;
     }
     .${NS}-panel-head button {
-      margin-left: auto; background: transparent; border: 0; color: #8b93a7;
+      margin-left: auto; background: transparent; border: 0; color: var(--ayna-muted, #5f5f6b);
       font: inherit; cursor: pointer; padding: 2px 6px;
     }
     .${NS}-panel-list { overflow: auto; min-height: 0; }
     .${NS}-group {
-      padding: 8px 14px 4px; font-size: 11px; letter-spacing: .04em; color: var(--ayna-dim, rgba(255,255,255,.46));
+      padding: 8px 14px 4px; font-size: 11px; letter-spacing: .04em; color: var(--ayna-dim, #6e6e7a);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     .${NS}-task {
-      padding: 9px 14px; border-top: 1px solid #1d2330; cursor: pointer;
+      padding: 9px 14px; border-top: 1px solid var(--ayna-line, #e6e6eb); cursor: pointer;
       display: flex; gap: 9px; align-items: flex-start;
     }
-    .${NS}-task:hover { background: #171b22; }
+    .${NS}-task:hover { background: var(--ayna-wash, #f3f3f6); }
     .${NS}-dot {
       width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; background: var(--ayna-accent, #de9446);
     }
-    .${NS}-task[data-status=approved] .${NS}-dot { background: var(--ayna-good, #7bc47f); }
-    .${NS}-task[data-status=in_progress] .${NS}-dot { background: var(--ayna-you, #e8b478); }
-    .${NS}-task[data-status=proposed] .${NS}-dot { background: var(--ayna-agent, #c9a2e8); }
-    .${NS}-task[data-status=rejected] .${NS}-dot { background: var(--ayna-bad, #e0685f); }
-    .${NS}-task[data-status=approved] .${NS}-task-text { color: var(--ayna-dim, rgba(255,255,255,.46)); text-decoration: line-through; }
+    .${NS}-task[data-status=approved] .${NS}-dot { background: var(--ayna-good, #1e7f45); }
+    .${NS}-task[data-status=in_progress] .${NS}-dot { background: var(--ayna-you, #a8641f); }
+    .${NS}-task[data-status=proposed] .${NS}-dot { background: var(--ayna-agent, #7356c8); }
+    .${NS}-task[data-status=rejected] .${NS}-dot { background: var(--ayna-bad, #c93c37); }
+    .${NS}-task[data-status=approved] .${NS}-task-text { color: var(--ayna-dim, #6e6e7a); text-decoration: line-through; }
     .${NS}-task-text { flex: 1; min-width: 0; }
-    .${NS}-task-meta { font-size: 11px; color: var(--ayna-dim, rgba(255,255,255,.46)); margin-top: 2px; }
+    .${NS}-task-meta { font-size: 11px; color: var(--ayna-dim, #6e6e7a); margin-top: 2px; }
     .${NS}-task-acts { display: flex; gap: 4px; flex: none; }
     .${NS}-task-acts button {
       border: 0; border-radius: 6px; padding: 2px 7px; font: 600 11px/1.6 inherit; cursor: pointer;
-      background: #232a36; color: var(--ayna-text, #f4f2ef);
+      background: var(--ayna-wash, #f3f3f6); color: var(--ayna-text, #17171a);
     }
-    .${NS}-task-acts button:hover { background: var(--ayna-good, #7bc47f); color: var(--ayna-on-good, #0a0a0a); }
-    .${NS}-task-acts button.${NS}-no:hover { background: var(--ayna-bad, #e0685f); }
-    .${NS}-empty { padding: 18px 14px; color: var(--ayna-dim, rgba(255,255,255,.46)); }
+    .${NS}-task-acts button:hover { background: var(--ayna-good, #1e7f45); color: var(--ayna-on-good, #ffffff); }
+    .${NS}-task-acts button.${NS}-no:hover { background: var(--ayna-bad, #c93c37); }
+    .${NS}-empty { padding: 18px 14px; color: var(--ayna-dim, #6e6e7a); }
     .${NS}-flash { animation: ${NS}-flash 1.1s ease-out 2; }
     @keyframes ${NS}-flash {
       0%, 100% { box-shadow: none; }
-      40% { box-shadow: 0 0 0 3px var(--ayna-warn, #e0a458); }
+      40% { box-shadow: 0 0 0 3px var(--ayna-warn, #a15c07); }
     }
     .${NS}-card {
       position: fixed; z-index: 2147483646; width: 300px; max-width: calc(100vw - 16px);
-      background: var(--ayna-panel, #121214); color: var(--ayna-panel-text, #f4f2ef);
+      background: var(--ayna-panel, #ffffff); color: var(--ayna-panel-text, #17171a);
       border-radius: 12px; padding: 14px;
-      box-shadow: 0 6px 20px rgba(0,0,0,.55); border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10));
+      box-shadow: 0 12px 32px rgba(15,15,20,.14), 0 2px 6px rgba(15,15,20,.08);
+      border: 1px solid var(--ayna-panel-line, #e6e6eb);
       font: 13px/1.55 -apple-system, system-ui, sans-serif;
       display: flex; flex-direction: column;
     }
@@ -684,17 +767,17 @@
     .${NS}-card[data-status=proposed] .${NS}-badge { background: #ede9fe; color: #5b21b6; }
     .${NS}-card textarea {
       width: 100%; min-height: 54px; resize: vertical; padding: 8px; margin-top: 8px;
-      border: 1px solid var(--ayna-panel-line, rgba(255,255,255,.10)); border-radius: 8px; font: inherit;
-      color: var(--ayna-panel-text, #f4f2ef); background: var(--ayna-panel, #121214);
+      border: 1px solid var(--ayna-panel-line, #e6e6eb); border-radius: 8px; font: inherit;
+      color: var(--ayna-panel-text, #17171a); background: var(--ayna-panel, #ffffff);
     }
     .${NS}-fix {
-      background: #f4f5f8; border-radius: 8px; padding: 8px 10px; margin: 8px 0;
-      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: #374151;
+      background: var(--ayna-wash, #f3f3f6); border-radius: 8px; padding: 8px 10px; margin: 8px 0;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ayna-muted, #5f5f6b);
     }
     .${NS}-card p { margin: 0 0 10px; }
     /* The selector under a comment is a line of prose to the reader, whatever it
        is to the machine — it gets the same floor as the rest. */
-    .${NS}-card .${NS}-when { color: var(--ayna-dim, rgba(255,255,255,.46)); font-size: 12px; margin-bottom: 10px; }
+    .${NS}-card .${NS}-when { color: var(--ayna-dim, #6e6e7a); font-size: 12px; margin-bottom: 10px; }
     .${NS}-pin i { font-style: normal; display: none; }
     .${NS}-pin:hover b { display: none; }
     .${NS}-pin:hover i { display: inline; }
@@ -774,6 +857,7 @@
     const leavingReview = state.phase === 'review' && phase !== 'review';
     if (phase !== 'waiting') clearTimeout(state.waitWarn);
     state.phase = phase;
+    setRailStatus();
     state.picking = phase === 'comment';
     if (leavingReview) clearReview();
 
@@ -1405,7 +1489,7 @@
     const g = c.getContext('2d');
     g.clearRect(0, 0, c.width, c.height);
     if (inkPath.length < 2) return;
-    g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--ayna-warn').trim() || 'var(--ayna-warn, #e0a458)';
+    g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--ayna-warn').trim() || 'var(--ayna-warn, #a15c07)';
     g.lineWidth = 3;
     g.lineJoin = 'round';
     g.lineCap = 'round';
@@ -2993,7 +3077,15 @@
       glyph: '✓', tone: 'good', text: 'Changes landed',
       detail: e.via && e.via !== 'marker' ? `noticed by ${e.via.replace('-', ' ')}` : '',
     }),
-    task: (e) => ({ glyph: '↳', text: `${e.taskId ?? e.id ?? ''} ${e.status ?? ''}`.trim(), detail: e.comment ?? '' }),
+    /*
+      What the task says, then which task it is. "task-0001 open" as the title
+      put the one part nobody reads first; the id is for looking it up, so it
+      goes in the line under the words.
+    */
+    task: (e) => {
+      const ref = [e.taskId ?? e.id, String(e.status ?? '').replace('_', ' ')].filter(Boolean).join(' · ');
+      return e.comment ? { glyph: '↳', text: e.comment, detail: ref } : { glyph: '↳', text: ref };
+    },
     rejected: (e) => ({ glyph: '↺', tone: 'warn', text: 'Sent back', detail: e.comment ?? '' }),
     closed: (e) =>
       e.approved
@@ -3090,7 +3182,7 @@
   function roundHeader(e) {
     const head = document.createElement('div');
     head.className = NS + '-phase';
-    head.textContent = 'round ' + (e.round ?? '') +
+    head.textContent = 'Round ' + (e.round ?? '') +
       (e.comments ? ' · ' + e.comments + ' comment' + (e.comments === 1 ? '' : 's') : '');
     return head;
   }
@@ -3101,8 +3193,9 @@
     consoleEl.classList.toggle(NS + '-min', min);
     // A spine is 34px; a glyph fits it, the word "Show" was clipped to "Sho".
     const fold = consoleEl.querySelector('[data-act=fold]');
-    fold.textContent = min ? '»' : 'Hide';
+    fold.textContent = min ? '»' : '«';
     fold.title = min ? 'Show activity' : 'Hide activity';
+    fold.setAttribute('aria-label', fold.title);
     try {
       sessionStorage.setItem('ayna-console', min ? 'min' : 'open');
     } catch {
@@ -3116,7 +3209,7 @@
     the same colour every time for the same name. Hashing the name gives that for
     free and needs no registry of who exists.
   */
-  const AGENT_COLOURS = ['var(--ayna-agent, #c9a2e8)', '#4795c4', 'var(--ayna-ayna, #79d4c0)', 'var(--ayna-warn, #e0a458)', 'var(--ayna-you, #e8b478)', '#f0561f'];
+  const AGENT_COLOURS = ['var(--ayna-agent, #7356c8)', '#4795c4', 'var(--ayna-ayna, #0e7c6b)', 'var(--ayna-warn, #a15c07)', 'var(--ayna-you, #a8641f)', '#f0561f'];
   const agentColour = (name) => {
     let n = 0;
     for (let i = 0; i < name.length; i++) n = (n * 31 + name.charCodeAt(i)) >>> 0;
@@ -3169,7 +3262,7 @@
       that left the rail blank from the first second — the very "panel that
       failed to load" the empty state exists to prevent.
     */
-    const clearEmpty = () => lines.querySelector('.' + NS + '-empty')?.remove();
+    const clearEmpty = () => lines.querySelector('.' + NS + '-welcome')?.remove();
     for (const e of events) {
       consoleSeq = Math.max(consoleSeq, e.seq ?? 0);
       // The same stream that carries messages carries these; no second channel.
@@ -3198,35 +3291,19 @@
   }
 
   /*
-    How see-through the rail can afford to be.
+    Where the round stands, in the rail's own header: the bar says it at length,
+    this is the version read out of the corner of an eye.
 
-    Transparency is not a look, it is an average with whatever is underneath.
-    Over kormo's near-black canvas 72% reads as glass; over a white landing page
-    the same 72% averages to #4e4e4e — a flat grey slab that reads as a panel
-    which failed to load, which is exactly what a screenshot of it showed.
-
-    So the tint follows the page: dark behind, stay see-through; light behind,
-    take enough opacity to still be dark. Measured off the first ancestor that
-    actually paints a background, the same way the contrast checks resolve a
-    backdrop, because `transparent` on body tells you nothing.
+    Found through the document rather than `consoleEl`, because setPhase runs
+    from start() before that binding exists — touching it there is the temporal
+    dead zone that once took the whole overlay down (see buildConsole's call).
   */
-  function setRailTint() {
-    const paints = (c) => c && c !== 'transparent' && !/^rgba\(0, 0, 0, 0\)$/.test(c);
-    let el = document.body;
-    let colour = null;
-    while (el && !colour) {
-      const bg = getComputedStyle(el).backgroundColor;
-      if (paints(bg)) colour = bg;
-      el = el.parentElement;
-    }
-    const m = /rgba?\(([^)]+)\)/.exec(colour ?? '');
-    // No painted backdrop at all: the browser's own white is what shows.
-    const [r, g, b] = m ? m[1].split(',').map(Number) : [255, 255, 255];
-    const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-
-    // 72% over something dark, ramping to 94% over white.
-    const tint = Math.round(72 + Math.max(0, Math.min(1, lum)) * 22);
-    document.documentElement.style.setProperty('--ayna-rail-tint', tint + '%');
+  function setRailStatus() {
+    const chip = document.querySelector('.' + NS + '-console .' + NS + '-status');
+    if (!chip) return;
+    const words = { comment: 'Ready', waiting: 'Claude working', review: 'Your turn' };
+    chip.dataset.phase = state.phase;
+    chip.textContent = words[state.phase] ?? 'Ready';
   }
 
   function buildConsole() {
@@ -3234,34 +3311,45 @@
     consoleEl = document.createElement('div');
     consoleEl.className = NS + '-console';
     consoleEl.setAttribute('data-ayna', '1');
+    // An arrow cursor, drawn rather than loaded: the overlay ships no icon font.
+    const pointer =
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 7-6.2 2.2L10.6 18.4z"/></svg>';
     consoleEl.innerHTML =
+      /*
+        The agents strip comes last so it wraps onto a row of its own, under the
+        title, instead of pushing the fold button down past it.
+      */
       '<div class="' + NS + '-console-head">' +
-        '<span class="' + NS + '-dotlive"></span><span class="' + NS + '-console-title">Activity</span>' +
-        '<span class="' + NS + '-agents"></span>' +
+        '<span class="' + NS + '-mark" aria-hidden="true"></span>' +
+        '<span class="' + NS + '-console-title">Review</span>' +
+        '<span class="' + NS + '-status" data-phase="comment">Ready</span>' +
         '<span class="' + NS + '-spacer"></span>' +
-        '<button data-act="fold">Hide</button>' +
+        '<button data-act="fold" title="Hide activity" aria-label="Hide activity">«</button>' +
+        '<span class="' + NS + '-agents"></span>' +
       '</div>' +
       /*
-        An empty rail has to say it is empty.
+        An empty rail has to say what to do.
 
-        Before anything happens this is 700px of flat ground between a header
-        and an input, which reads as a panel that failed to load rather than one
-        with nothing in it yet. It is also the first thing anyone sees, so it is
-        the cheapest place to say what the three modes do — the information a
-        first-time user needs at exactly the moment they have it least.
+        Before anything happens this is most of the window's height between a
+        header and an input, which reads as a panel that failed to load rather
+        than one with nothing in it yet. It is also the first thing anyone sees,
+        so it is the cheapest place to say what to do first and what follows —
+        the information a first-time user needs at exactly the moment they have
+        it least.
 
         It is removed by the first real line, and never comes back.
       */
       '<div class="' + NS + '-console-lines">' +
-        '<div class="' + NS + '-empty">' +
-          '<p class="' + NS + '-empty-lead">Nothing yet.</p>' +
-          '<dl>' +
-            '<dt>Comment</dt><dd>click anything, say what should change</dd>' +
-            '<dt>Draw</dt><dd>drag a box round an area instead</dd>' +
-            '<dt>Move</dt><dd>drag to reorder, to show the layout you meant</dd>' +
-            '<dt>Browse</dt><dd>use the app normally, links and all</dd>' +
-          '</dl>' +
-          '<p class="' + NS + '-empty-foot">Work lands here as it happens — yours and every agent\'s.</p>' +
+        '<div class="' + NS + '-welcome">' +
+          '<div class="' + NS + '-welcome-icon">' + pointer + '</div>' +
+          '<div class="' + NS + '-welcome-title">Point at anything on the page</div>' +
+          '<div class="' + NS + '-welcome-body">Click an element and say what should change. Claude\'s replies, and every change it makes, land here.</div>' +
+          '<div class="' + NS + '-welcome-steps">' +
+            '<div><i>1</i>Comment on what looks wrong</div>' +
+            '<div><i>2</i>Send it to Claude</div>' +
+            '<div><i>3</i>Judge each change on the page</div>' +
+          '</div>' +
         '</div>' +
       '</div>' +
       '<div class="' + NS + '-console-say">' +
@@ -3269,6 +3357,7 @@
           '<input placeholder="Message Claude" />' +
           '<button data-act="say" title="Send (Enter)" aria-label="Send">↑</button>' +
         '</div>' +
+        '<div class="' + NS + '-say-hint">Enter to send</div>' +
       '</div>';
     const grip = document.createElement('div');
     grip.className = NS + '-grip';
@@ -3277,7 +3366,7 @@
     wireGrip(grip);
     setRailWidth(parseInt(railWidth, 10) || 0);
     document.documentElement.appendChild(consoleEl);
-    setRailTint();
+    setRailStatus();
 
     consoleEl.querySelector('[data-act=fold]').addEventListener('click', () => setConsoleMinimised(!consoleMin));
 

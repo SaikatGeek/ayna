@@ -70,64 +70,149 @@ function deepMerge(base, override) {
 */
 export const DEFAULT_THEME = {
   /*
-    One material, lit in one place.
+    Paper, with one gold fill.
 
-    The rule is borrowed from kormoOS, which states it in its own stylesheet:
-    black is the MATERIAL, the warm tone is only the LIGHT. Surfaces stay
-    neutral near-black and differ only by elevation; the warm value appears on
-    edges, active states and the one call to action, never as a large fill.
-    When every layer is the same warm family nothing separates from anything,
-    which is the whole of the "muddy" reading.
+    The rail used to be near-black and a quarter of the window wide. Next to the
+    light apps most people review, that made ayna's own chrome the heaviest
+    thing on screen: the page you came to judge read as the smaller of the two,
+    and an empty rail read as a panel that had failed to load. White chrome
+    separated by hairlines sits beside an app instead of competing with it.
 
-    What was here before was not a palette at all. `surface`, `line` and `text`
-    were themed while `bar` and `panel` were not in this object, so they fell
-    back to literals in overlay.js that nobody had reconciled: a #111418 bar, a
-    #4a4a4a-reading rail and a pure #fff comment box, three unrelated surfaces
-    on screen at once. A screenshot of it settles the argument — the white card
-    is the loudest thing in the window and it is the least important.
+    The gold stays, as a FILL — the one call to action, the send arrow, the
+    marks you make on the page. As ink or a hairline on white the same gold is
+    2.49:1, which is why `accent-strong` exists: the same hue, dark enough to be
+    read, or to ring a focused field.
 
-    Anything unset still falls back, so a one-line theme is a valid theme, and
-    a project that wants ayna to wear its own colours still can.
+    Before this the rule was kormoOS's — black is the material, the warm tone
+    only the light. It suited a dark canvas, and any of it can come back: a
+    theme in ayna.config.json overrides these keys, and anything unset keeps its
+    default, so one line is a valid theme.
   */
 
-  // ── surfaces: neutral, separated only by elevation ──────────────────────
-  surface: '#0a0a0b', // the rail and the deepest ground
-  bar: '#0d0d0f', // the docked control bar, one step up
-  panel: '#121214', // popovers and the task list, the raised plane
-  line: 'rgba(255,255,255,0.075)', // an ivory hairline, never a coloured stroke
+  // ── surfaces: one paper, told apart by hairlines rather than by shade ───
+  surface: '#ffffff', // the rail
+  bar: '#ffffff', // the docked control bar
+  panel: '#ffffff', // popovers, the task list, review cards
+  wash: '#f3f3f6', // the soft fill: hover, the mode track, your own messages
+  line: '#e6e6eb', // a hairline, never a coloured stroke
 
-  // ── ink: neutral, so the warmth on screen is only ever the light ────────
-  text: '#f4f2ef',
-  muted: 'rgba(255,255,255,0.62)',
+  // ── ink: three steps, each measured on white ────────────────────────────
+  text: '#17171a', // 17.9:1
+  muted: '#5f5f6b', // 6.3:1
   /*
-    4.6:1 on `surface`, not 3.0.
+    5.0:1 on `surface`, and still 4.5 on `wash`.
 
     The dimmest ink is still ink somebody has to read — these are the timestamps
-    down the rail — and the value first chosen for it failed the contrast floor
+    down the rail — and a value once chosen for it failed the contrast floor
     ayna enforces on everyone else's UI.
   */
-  dim: 'rgba(255,255,255,0.46)',
+  dim: '#6e6e7a',
 
-  // The popover is the same material, so it needs no separate ink; these exist
+  // The popover is the same paper, so it needs no separate ink; these exist
   // because overlay.js asks for them by name.
+  'panel-text': '#17171a',
+  'panel-line': '#e6e6eb',
+
+  // ── the gold ────────────────────────────────────────────────────────────
+  // Sampled from kormoOS's gold ramp. Luminance 0.37, so what is written on it
+  // is black at 7.95:1 — computed by inkOn, never assumed.
+  accent: '#de9446',
+  'accent-strong': '#a8641f', // the gold as ink: text, focus rings (4.66:1)
+  live: '#a8641f',
+  you: '#a8641f',
+  agent: '#7356c8',
+  ayna: '#0e7c6b',
+
+  // ── state: readable as text on white, and white is readable on them ─────
+  good: '#1e7f45',
+  warn: '#a15c07',
+  bad: '#c93c37',
+};
+
+/*
+  The dark palette the paper one replaced, kept whole.
+
+  A theme that names a dark ground and no inks — the README's own example sets
+  only `accent`, `surface` and `bar` — would otherwise inherit the paper
+  defaults' near-black text and lay it on its near-black rail. When the ground a
+  project chose is dark, every key it left unset comes from here instead, so a
+  partial dark theme stays a dark theme rather than an unreadable one.
+*/
+export const DARK_THEME = {
+  surface: '#0a0a0b',
+  bar: '#0d0d0f',
+  panel: '#121214',
+  wash: '#1c1c1f',
+  line: 'rgba(255,255,255,0.075)',
+  text: '#f4f2ef',
+  muted: 'rgba(255,255,255,0.62)',
+  dim: 'rgba(255,255,255,0.46)', // 4.6:1 on `surface`
   'panel-text': '#f4f2ef',
   'panel-line': 'rgba(255,255,255,0.10)',
-
-  // ── the light ───────────────────────────────────────────────────────────
-  // Sampled from kormoOS's gold ramp. Luminance 0.42, so the computed
-  // `--ayna-on-accent` comes out near-black, which is the treatment kormo uses
-  // for its own gold CTAs rather than an accident.
   accent: '#de9446',
+  'accent-strong': '#e0b978', // on a dark ground the lighter gold is the readable one
   live: '#e0b978',
   you: '#e8b478',
   agent: '#c9a2e8',
   ayna: '#79d4c0',
-
-  // ── state ───────────────────────────────────────────────────────────────
   good: '#7bc47f',
   warn: '#e0a458',
   bad: '#e0685f',
 };
+
+/** The project's theme over whichever default matches the ground it chose. */
+export function resolveTheme(user = {}) {
+  const l = luminance(user.surface ?? user.bar ?? user.panel);
+  const base = l !== null && l < 0.18 ? DARK_THEME : DEFAULT_THEME;
+  return { ...base, ...user };
+}
+
+/*
+  What colour text belongs on a fill: black or white, whichever reads better.
+
+  This used to be a cut at luminance 0.4, worked out inside the page, and 0.4 is
+  not where black overtakes white — the two ratios cross near 0.18. Every fill
+  in between got white: the default gold measures 0.37, so "Send to Claude", the
+  rail's send arrow and every selection tag were white on gold at 2.49:1 while
+  black on the same gold is 7.95:1. Comparing the two ratios cannot pick the
+  worse one, wherever a threshold would have been put.
+
+  It lives here rather than in the page so it can be tested without a browser —
+  the in-page version was only ever reached by the CLI, never by a test.
+*/
+const BLACK_INK = '#0a0a0a';
+const WHITE_INK = '#ffffff';
+
+function luminance(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex ?? '').trim());
+  if (!m) return null;
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255)
+    .map((x) => (x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Black or white for text on `hex`; null when `hex` is not a #rrggbb colour. */
+export function inkOn(hex) {
+  const l = luminance(hex);
+  if (l === null) return null;
+  const black = (l + 0.05) / (luminance(BLACK_INK) + 0.05);
+  const white = 1.05 / (l + 0.05);
+  return black >= white ? BLACK_INK : WHITE_INK;
+}
+
+/**
+ * The theme plus `on-<key>` for every colour something is written on. A project
+ * that names its own `on-accent` keeps it; everything else is measured.
+ */
+export function withInks(theme) {
+  const out = { ...theme };
+  for (const key of ['accent', 'good', 'bad', 'warn', 'live']) {
+    const ink = inkOn(theme?.[key]);
+    if (ink && !(`on-${key}` in out)) out[`on-${key}`] = ink;
+  }
+  return out;
+}
 
 export async function loadConfig(rootDir) {
   const file = path.join(rootDir, 'ayna.config.json');
@@ -139,7 +224,7 @@ export async function loadConfig(rootDir) {
     // No config yet — defaults are fine.
   }
   const cfg = deepMerge(DEFAULT_CONFIG, user);
-  cfg.theme = { ...DEFAULT_THEME, ...(cfg.theme ?? {}) };
+  cfg.theme = resolveTheme(cfg.theme ?? {});
   cfg.rootDir = rootDir;
   cfg.targetDir = path.resolve(rootDir, cfg.target.root);
   cfg.runsDir = path.join(rootDir, '.ayna', 'runs');

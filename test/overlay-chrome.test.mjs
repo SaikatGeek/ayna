@@ -22,6 +22,7 @@ import path from 'node:path';
 import { openBrowser } from '../src/browser.mjs';
 import { CHECKS } from '../src/audit.mjs';
 import { runAnnotate } from '../src/annotate.mjs';
+import { resolveTheme } from '../src/config.mjs';
 import { hasBrowser } from './helpers.mjs';
 
 /** The audit, but with ayna's own elements eligible to be found as coverers. */
@@ -353,9 +354,15 @@ describe('the review panel meets the floor it enforces', { skip: !hasBrowser && 
     await browser?.close().catch(() => {});
   });
 
-  // Deliberately no `theme`: this measures the fallbacks, which is what an
-  // install with no ayna.config.json actually renders.
-  test('every control in the comment box is readable with no theme configured', async () => {
+  /*
+    Measured twice, because they are two different windows.
+
+    With `theme: null` this is the stylesheet's fallbacks alone. Without a
+    `theme` it is what every real window gets — the CLI always passes one — and
+    that rendering went unmeasured while white-on-gold shipped: the fallback ink
+    was black, the computed one was white, and only the first was ever looked at.
+  */
+  async function measureChrome(themeOption) {
     const { srv, url } = await serve('<main style="padding:60px"><h1 class="title">Hello</h1><p>Body copy.</p></main>');
     const dir = await mkdtemp(path.join(tmpdir(), 'ayna-selfcontrast-'));
     try {
@@ -366,7 +373,12 @@ describe('the review panel meets the floor it enforces', { skip: !hasBrowser && 
         outDir: path.join(dir, 'out'),
         projectDir: dir,
         viewport: { width: 1200, height: 820 },
+        ...themeOption,
         onReady: async (page) => {
+          // Something typed into the rail first, so its send arrow is lit — the
+          // one control that is gold only while there is something to send.
+          await page.waitForSelector('.ayna-ov-console input', { timeout: 10000 });
+          await page.fill('.ayna-ov-console input', 'and the CTA bigger');
           await page.click('.title');
           await page.waitForSelector('.ayna-ov-pop textarea', { timeout: 10000 });
           await page.waitForTimeout(350);
@@ -428,7 +440,13 @@ describe('the review panel meets the floor it enforces', { skip: !hasBrowser && 
               return null; // never reached an opaque layer: not measurable
             };
             const out = [];
-            for (const el of document.querySelectorAll('[data-ayna] button, [data-ayna] textarea, [data-ayna] .ayna-ov-hint, [data-ayna] .ayna-ov-sel')) {
+            const MEASURED = [
+              'button', 'textarea', 'input', '.ayna-ov-hint', '.ayna-ov-sel',
+              // The rail: its header, the first-look guide and the hint under the box.
+              '.ayna-ov-console-title', '.ayna-ov-status', '.ayna-ov-welcome-title',
+              '.ayna-ov-welcome-body', '.ayna-ov-welcome-steps > div', '.ayna-ov-say-hint',
+            ].map((s) => '[data-ayna] ' + s).join(', ');
+            for (const el of document.querySelectorAll(MEASURED)) {
               const r = el.getBoundingClientRect();
               if (r.width < 2 || r.height < 2) continue;
               const cs = getComputedStyle(el);
@@ -438,7 +456,19 @@ describe('the review panel meets the floor it enforces', { skip: !hasBrowser && 
               if (!fg || fg.a < 1) continue;
               const under = backdrop(el);
               if (!under) continue;
-              const a = lum(cs.color);
+              /*
+                Opacity dims ink as surely as a lighter colour does. A hint
+                inked in the dimmest colour and then set at 62% opacity measured
+                5.0:1 by its colour and 2.5:1 on screen.
+              */
+              let opacity = 1;
+              for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+                opacity *= Number(getComputedStyle(n).opacity);
+              }
+              if (opacity < 0.05) continue;
+              const u = parse(under);
+              const mix = (k) => fg[k] * opacity + u[k] * (1 - opacity);
+              const a = lum(`rgb(${mix('r')}, ${mix('g')}, ${mix('b')})`);
               const b = lum(under);
               if (a === null || b === null) continue;
               const [hi, lo] = [a, b].sort((x, y) => y - x);
@@ -456,18 +486,40 @@ describe('the review panel meets the floor it enforces', { skip: !hasBrowser && 
           await page.close();
         },
       });
-
-      assert.ok(rows.length >= 4, `only measured ${rows.length} controls — the panel did not open`);
-      const failed = rows.filter((r) => r.ratio < r.needs);
-      assert.deepEqual(
-        failed,
-        [],
-        `ayna's own controls fail the contrast floor it enforces:\n` +
-          failed.map((f) => `  ${f.what} "${f.text}" ${f.ratio}:1 needs ${f.needs}`).join('\n'),
-      );
+      return rows;
     } finally {
       srv.close();
       await rm(dir, { recursive: true, force: true });
     }
+  }
+
+  const assertReadable = (rows) => {
+    assert.ok(rows.length >= 4, `only measured ${rows.length} controls — the panel did not open`);
+    assert.ok(
+      rows.some((r) => r.what.includes('welcome')),
+      'the rail was not measured — its first-look guide never appeared',
+    );
+    const failed = rows.filter((r) => r.ratio < r.needs);
+    assert.deepEqual(
+      failed,
+      [],
+      `ayna's own controls fail the contrast floor it enforces:\n` +
+        failed.map((f) => `  ${f.what} "${f.text}" ${f.ratio}:1 needs ${f.needs}`).join('\n'),
+    );
+  };
+
+  test('every control in the comment box is readable with no theme configured', async () => {
+    assertReadable(await measureChrome({ theme: null }));
+  });
+
+  test('every control is readable in the theme a real window gets', async () => {
+    assertReadable(await measureChrome({}));
+  });
+
+  // The README's example theme names only a dark ground and a lime accent;
+  // everything else has to come out readable on that ground too.
+  test('every control is readable under a partial dark theme', async () => {
+    const theme = resolveTheme({ accent: '#ccfe05', surface: '#0a0a0a', bar: '#000000' });
+    assertReadable(await measureChrome({ theme }));
   });
 });

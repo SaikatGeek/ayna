@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-import { loadConfig, DEFAULT_CONFIG } from '../src/config.mjs';
+import { loadConfig, DEFAULT_CONFIG, DEFAULT_THEME, DARK_THEME, resolveTheme, inkOn, withInks } from '../src/config.mjs';
 import { snapshot, restore, changedFiles } from '../src/snapshot.mjs';
 import { serveStatic } from '../src/server.mjs';
 import { writeReport } from '../src/report.mjs';
@@ -61,6 +61,80 @@ describe('config', () => {
       await writeFile(path.join(dir, 'ayna.config.json'), '{ not json');
       const cfg = await loadConfig(dir);
       assert.equal(cfg.target.root, DEFAULT_CONFIG.target.root);
+    } finally {
+      await dispose();
+    }
+  });
+});
+
+/*
+  The ink on a fill is measured, and measured the right way round.
+
+  A cut at luminance 0.4 sent every fill between ~0.18 and 0.4 white text —
+  the default gold among them, at 2.49:1 where black is 7.95:1. Only the CLI
+  ever reached that code, so no test saw it; this pins the arithmetic itself.
+*/
+describe('ink on a fill', () => {
+  test('the default gold carries black, not white', () => {
+    assert.equal(inkOn('#de9446'), '#0a0a0a');
+    assert.equal(withInks(DEFAULT_THEME)['on-accent'], '#0a0a0a');
+  });
+
+  test('picks whichever ink reads better, across the range', () => {
+    assert.equal(inkOn('#ccfe05'), '#0a0a0a', 'a bright lime');
+    assert.equal(inkOn('#e0685f'), '#0a0a0a', 'a mid red: 5.95:1 black against 3.33:1 white');
+    assert.equal(inkOn('#1e7f45'), '#ffffff', 'a deep green');
+    assert.equal(inkOn('#17171a'), '#ffffff');
+    assert.equal(inkOn('#DE9446'), '#0a0a0a', 'case does not matter');
+  });
+
+  test('a colour it cannot read is left to the stylesheet', () => {
+    assert.equal(inkOn('rgba(0,0,0,.5)'), null);
+    assert.equal(inkOn(undefined), null);
+    assert.equal('on-accent' in withInks({ accent: 'var(--brand)' }), false);
+  });
+
+  test('adds an ink for every fill, and keeps one a project named itself', () => {
+    const inks = withInks(DEFAULT_THEME);
+    for (const key of ['accent', 'good', 'bad', 'warn', 'live']) {
+      assert.match(inks[`on-${key}`], /^#(0a0a0a|ffffff)$/, `on-${key}`);
+    }
+    assert.equal(withInks({ accent: '#de9446', 'on-accent': '#123456' })['on-accent'], '#123456');
+    assert.equal(inks.accent, DEFAULT_THEME.accent, 'the theme itself is passed through');
+  });
+});
+
+/*
+  A partial theme is completed from the default that matches its ground.
+
+  The defaults turned light; a project that had set only a dark `surface` — as
+  the README's own example does — would otherwise get near-black text on its
+  near-black rail.
+*/
+describe('completing a partial theme', () => {
+  const README_EXAMPLE = { accent: '#ccfe05', surface: '#0a0a0a', bar: '#000000' };
+
+  test('a dark ground keeps dark-ground inks', () => {
+    const theme = resolveTheme(README_EXAMPLE);
+    assert.equal(theme.surface, '#0a0a0a', 'what the project set wins');
+    assert.equal(theme.text, DARK_THEME.text);
+    assert.equal(theme.panel, DARK_THEME.panel);
+    assert.equal(withInks(theme)['on-accent'], '#0a0a0a', 'lime carries black');
+  });
+
+  test('no theme, or one that names only an accent, is paper', () => {
+    assert.deepEqual(resolveTheme({}), DEFAULT_THEME);
+    assert.equal(resolveTheme({ accent: '#5b5bd6' }).text, DEFAULT_THEME.text);
+    assert.equal(resolveTheme({ surface: '#fafafa' }).text, DEFAULT_THEME.text);
+  });
+
+  test('loadConfig completes the theme the same way', async () => {
+    const { dir, dispose } = await tempDir();
+    try {
+      await writeFile(path.join(dir, 'ayna.config.json'), JSON.stringify({ theme: README_EXAMPLE }));
+      const cfg = await loadConfig(dir);
+      assert.equal(cfg.theme.text, DARK_THEME.text);
+      assert.equal(cfg.theme.accent, '#ccfe05');
     } finally {
       await dispose();
     }
