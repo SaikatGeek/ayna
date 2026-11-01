@@ -246,7 +246,9 @@ export function summarizeDesign(result, { relativeTo } = {}) {
   const rel = (f) => {
     if (!f) return '';
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(f)) return f;
-    return relativeTo ? path.relative(relativeTo, f) : f;
+    // Forward slashes on every platform. A brief reads the same wherever it was
+    // written, and `demo\index.html` from Windows is not a path anywhere else.
+    return relativeTo ? path.relative(relativeTo, f).split(path.sep).join('/') : f;
   };
 
   const fix = result.recommendations.filter((r) => r.act === 'fix');
