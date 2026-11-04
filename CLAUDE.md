@@ -32,6 +32,7 @@ src/loop.mjs        standalone orchestration (spawns its own Claude sessions)
 src/brain.mjs       `claude -p` wrapper — standalone path only
 src/snapshot.mjs    backup / restore / changed-file detection
 src/report.mjs      HTML report
+src/dashboard.mjs   read-only HTML page over .ayna/ayna.db (`ayna dashboard`)
 src/server.mjs      static server for the target
 demo/               a deliberately mediocre landing page to improve
 ```

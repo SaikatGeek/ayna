@@ -262,6 +262,7 @@ condition under which it is finished, and taste has none.
 | `ayna say "…"` | put a line in the rail you are looking at |
 | `ayna events --since 0` | everything that happened, and what is owed — survives every process |
 | `ayna tasks` · `ayna task <id> --status s` | the queue, and moving one through it |
+| `ayna dashboard --open` | every task, page, agent and event as one read-only page in the browser |
 | `ayna inspect --selector ".x"` | one region, headless: its crop and its faults |
 | `ayna audit` | layout faults the whole page can prove |
 | `ayna verify` | ask each open task whether it still applies |
@@ -371,6 +372,7 @@ src/audit.mjs       what the page can prove
 src/verify.mjs      does this task still apply?
 src/worker.mjs      the queue, unattended
 src/db.mjs          sqlite: sessions, tabs, tasks, events
+src/dashboard.mjs   that store as one static page — what is owed, stuck, sent back
 src/watchd.mjs      the bookkeeper
 scripts/ui-shots.mjs · self-taste.mjs · readme-shots.mjs
 demo/               a deliberately mediocre landing page to improve
@@ -378,4 +380,4 @@ demo/               a deliberately mediocre landing page to improve
 
 Plain ESM, no TypeScript, no build step. One dependency: `playwright-core`.
 
-**193 tests.** `npm test`.
+**312 tests.** `npm test`.
